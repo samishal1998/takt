@@ -76,6 +76,17 @@ jobs:
             sha256sum -c "takt-$version-$target.tar.gz.sha256"
           done
           cat ./*.tar.gz.sha256 > SHA256SUMS
+      - name: Generate standalone installer and wrapper
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          python3 scripts/generate-bootstrap.py --version "${RELEASE_TAG#v}" \
+            --checksums dist/SHA256SUMS --output-dir dist
+          sh -n dist/install.sh
+          sh -n dist/taktw
+          cd dist
+          sha256sum install.sh taktw > bootstrap-SHA256SUMS
       - name: Publish validated archives and measurements
         env:
           GH_TOKEN: ${{ github.token }}
@@ -97,4 +108,5 @@ jobs:
           fi
           gh release create "$RELEASE_TAG" "${tag_options[@]}" --generate-notes \
             dist/*.tar.gz dist/*.tar.gz.sha256 dist/SHA256SUMS \
-            dist/*-size.json dist/*-performance.json
+            dist/*-size.json dist/*-performance.json \
+            dist/install.sh dist/taktw dist/bootstrap-SHA256SUMS

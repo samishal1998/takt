@@ -49,7 +49,9 @@ controller lanes, extracted-artifact tests, and the actual Linux 5.15/glibc 2.35
 guest. The publication step checks that all three archive names match the tag and
 verifies their checksum files before creating the GitHub release. It attaches the
 three archives, their individual checksum files, one `SHA256SUMS` manifest,
-and per-target size and performance measurement JSON. Both release entry points
+and per-target size and performance measurement JSON. It also generates standalone
+`install.sh` and `taktw` assets with the validated archive hashes embedded, plus
+`bootstrap-SHA256SUMS` for those scripts. Both release entry points
 run the expanded 2,048-case property suite before publication.
 
 After reviewing a commit, start the manual path with
@@ -66,12 +68,15 @@ their organization's policy for downloaded executables.
 
 ## Install a published archive
 
+For automatic installation or a caching project wrapper, see the
+[installation guide](installation.md).
+
 Download the archive matching your target and the release's `SHA256SUMS` file.
 On Linux, verify the matching manifest entry with `sha256sum --check`; on macOS
 use `shasum -a 256 --check`. Extract the archive and place `takt` in a directory
 already on your `PATH`. Run `takt --version` and `takt doctor` to inspect the
-installed executable and host capabilities. No package manager, Node runtime,
-shell-piped installer, or additional probe executable is required.
+installed executable and host capabilities. This manual path needs no package
+manager, Node runtime, or additional probe executable.
 
 Keep raw safety logs, controller snapshots, fixture outcomes, guest serial output,
 and per-target measurements with the CI run. Startup, supervisor RSS, and idle CPU

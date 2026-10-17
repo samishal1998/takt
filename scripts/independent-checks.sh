@@ -4,6 +4,8 @@ cd "$(dirname "$0")/.."
 target=${1:?usage: independent-checks.sh RUST_TARGET}
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
 export RUST_TEST_THREADS=1
+python3 scripts/generate-bootstrap.py --check
+python3 -B scripts/test_bootstrap.py
 python3 -B scripts/test_artifact_abi.py
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --target "$target" --locked -- -D warnings

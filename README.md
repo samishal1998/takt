@@ -17,6 +17,28 @@ takt doctor
 
 ## Build and install
 
+Install the latest release into `~/.local/bin`:
+
+```sh
+curl -fsSL https://github.com/samishal1998/takt/releases/latest/download/install.sh | sh
+```
+
+Or use the standalone wrapper in a project:
+
+```sh
+curl -fsSL https://github.com/samishal1998/takt/releases/latest/download/taktw -o taktw
+chmod +x taktw
+./taktw --version
+./taktw run checks
+```
+
+The wrapper reuses Takt from your `PATH` when available. Otherwise it downloads
+the pinned release once, verifies its SHA-256, and reuses the cached executable
+on subsequent runs, including offline. Both scripts work with `sh` or Bash and
+select Linux x86-64 musl or macOS Apple Silicon automatically. See
+[installation and wrapper options](docs/installation.md) for custom directories,
+version pinning, and GNU builds.
+
 Build from source with Rust 1.99.0:
 
 ```sh

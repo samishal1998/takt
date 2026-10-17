@@ -52,6 +52,8 @@ jobs:
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --target '${{ matrix.target }}'
       - name: Independent checks
         run: bash scripts/independent-checks.sh '${{ matrix.target }}'
+      - name: Install published binary and verify offline reuse
+        run: bash scripts/smoke-bootstrap.sh '${{ matrix.target }}'
       - name: Package and test extracted executable
         run: bash scripts/package.sh '${{ matrix.target }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
