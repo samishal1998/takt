@@ -34,7 +34,8 @@ takt plan checks --output json
 ```
 
 Prefer a project-local command? The [Takt wrapper](/takt/installation/#project-wrapper)
-reuses an installed binary or downloads and caches a verified release.
+downloads, verifies, and caches its pinned release by default. Set
+`TAKT_USE_SYSTEM=1` to opt into reusing an installed Takt from your PATH.
 
 <CardGrid>
   <Card title="Work within a budget" icon="setting">

@@ -36,9 +36,10 @@ chmod +x taktw
 ./taktw run checks
 ```
 
-The wrapper reuses Takt from your `PATH` when available. Otherwise it downloads
-the pinned release once, verifies its SHA-256, and reuses the cached executable
-on subsequent runs, including offline. Both scripts work with `sh` or Bash and
+The wrapper uses its pinned release by default (currently `0.1.0`), downloading
+it once, verifying its SHA-256, and reusing the cached executable on subsequent
+runs, including offline. Set `TAKT_USE_SYSTEM=1` to opt into reusing Takt from your
+`PATH` when available. Both scripts work with `sh` or Bash and
 select Linux x86-64 musl or macOS Apple Silicon automatically. See
 [installation and wrapper options](docs/installation.md) for custom directories,
 version pinning, and GNU builds.

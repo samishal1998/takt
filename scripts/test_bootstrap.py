@@ -146,7 +146,7 @@ class BootstrapTests(unittest.TestCase):
         self.log = self.work / "curl.jsonl"
         self.env = {
             "PATH": str(self.tools), "HOME": str(self.home),
-            "TMPDIR": str(self.tmp), "LC_ALL": "C", "TAKT_USE_SYSTEM": "0",
+            "TMPDIR": str(self.tmp), "LC_ALL": "C",
             "TAKT_CACHE_DIR": str(self.cache),
             "TAKT_TEST_ARCHIVES": str(self.fixtures),
             "TAKT_TEST_CURL_LOG": str(self.log),
@@ -221,8 +221,21 @@ class BootstrapTests(unittest.TestCase):
 
     def test_force_cache_ignores_installed_binary(self):
         self.install_system_binary()
-        result = self.successful(self.command())
+        result = self.successful(self.command(env={"TAKT_USE_SYSTEM": "0"}))
         self.assertEqual(json.loads(result.stdout)["source"], str(self.cached().resolve()))
+        self.assertEqual(len(self.requests()), 1)
+
+    def test_default_uses_pinned_cache_without_probing_installed_takt(self):
+        probe = self.work / "system-probed"
+        executable(self.tools / "takt", python_script(
+            "from pathlib import Path\n"
+            f"Path({str(probe)!r}).write_text('probed')\n"
+            "print('takt 1.2.3')\n"
+        ))
+        for mode in ("", "offline"):
+            result = self.successful(self.command(env={"TAKT_TEST_CURL_MODE": mode}))
+            self.assertEqual(json.loads(result.stdout)["source"], str(self.cached().resolve()))
+            self.assertFalse(probe.exists(), "default wrapper must not probe an installed binary")
         self.assertEqual(len(self.requests()), 1)
 
     def test_cold_cache_then_offline_reuse(self):

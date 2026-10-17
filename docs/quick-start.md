@@ -14,8 +14,8 @@ takt doctor
 ```
 
 If you downloaded the project wrapper, use `./taktw` wherever this guide says
-`takt`. The wrapper reuses an installed Takt or downloads and caches its pinned
-release.
+`takt`. The wrapper downloads, verifies, and caches its pinned release by default.
+Set `TAKT_USE_SYSTEM=1` to opt into reusing an installed Takt from PATH.
 
 ## Run a command
 

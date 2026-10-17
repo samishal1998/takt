@@ -20,7 +20,7 @@ ENTRYPOINTS = {
     "taktw": """takt_launch() {
     # A PATH version probe must never recurse into another copy of the launcher.
     [ "${TAKT_BOOTSTRAP_PROBE:-}" != 1 ] || exit 127
-    case "${TAKT_USE_SYSTEM:-1}" in
+    case "${TAKT_USE_SYSTEM:-0}" in
         1) takt_use_installed "$@" ;;
         0) ;;
         *) takt_fail 'TAKT_USE_SYSTEM must be 0 or 1' ;;

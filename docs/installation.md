@@ -37,16 +37,19 @@ It works from any working directory, preserves arguments and stdin, and replaces
 itself with Takt so exit status and signals reach the application normally. It
 does not require a checkout of this repository, Rust, Python, or Bedouin.
 
-The wrapper first searches PATH for an executable that reports a Takt version.
-An existing installation takes precedence, including a different release version.
-Copies and symlinks of the wrapper named `takt` are skipped to avoid recursion.
-If no installation is available, the wrapper uses its embedded release version
-and checksums. The initial wrapper pins `0.1.0`. To require that pinned release
-even when another Takt is installed:
+The wrapper uses its pinned release by default, downloading and verifying it
+once before reusing the cached executable. The checked-in wrapper pins `0.1.0`.
+To opt into reusing an installed Takt from PATH:
 
 ```sh
-TAKT_USE_SYSTEM=0 ./taktw run checks
+TAKT_USE_SYSTEM=1 ./taktw run checks
 ```
+
+With this opt-in, an executable that reports a Takt version takes precedence,
+including a different release version. Copies and symlinks of the wrapper named
+`takt` are skipped to avoid recursion. If no installation is available, the
+wrapper falls back to its pinned release. Set `TAKT_USE_SYSTEM=0` to override an
+environment that enables system reuse and restore the pinned default.
 
 The binary cache is `${XDG_CACHE_HOME:-$HOME/.cache}/takt/VERSION/TARGET/takt`.
 Set `TAKT_CACHE_DIR` to change the cache root. Both scripts use this cache; warm
@@ -56,8 +59,8 @@ working cache entry. Concurrent first runs can download independently and publis
 only complete executables.
 
 Fetch a new wrapper to update its bundled version. For reproducible projects,
-commit a reviewed wrapper and use `TAKT_USE_SYSTEM=0`. To install a particular
-release, replace `releases/latest/download` in the URLs with
+commit a reviewed wrapper and keep the default pinned-release behavior. To
+install a particular release, replace `releases/latest/download` in the URLs with
 `releases/download/vVERSION`; installer assets are available starting with v0.1.0.
 
 ## Platforms and requirements
@@ -68,10 +71,10 @@ release, replace `releases/latest/download` in the URLs with
 | macOS Apple Silicon, macOS 15+ | `aarch64-apple-darwin` |
 
 Linux downloads use musl by default on both glibc and musl distributions. For the
-GNU build on a glibc 2.35+ host, set `TAKT_TARGET=x86_64-unknown-linux-gnu` (and
-`TAKT_USE_SYSTEM=0` when using the wrapper to bypass an installed binary). When
-selecting a download, unsupported host architectures and incompatible target
-overrides fail with a diagnostic. Intel
+GNU build on a glibc 2.35+ host, set `TAKT_TARGET=x86_64-unknown-linux-gnu`. If your
+environment enables system reuse, also set `TAKT_USE_SYSTEM=0` so the wrapper
+uses the selected release target. When selecting a download, unsupported host
+architectures and incompatible target overrides fail with a diagnostic. Intel
 macOS, Linux ARM, and native Windows releases are not yet available.
 
 Cold downloads require `curl`, `tar`, and either `sha256sum` or `shasum`, alongside

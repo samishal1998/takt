@@ -6,11 +6,12 @@ target=${1:?usage: smoke-bootstrap.sh RUST_TARGET}
 stage=$(mktemp -d "${TMPDIR:-/tmp}/takt-bootstrap-smoke.XXXXXXXX")
 trap 'rm -rf "$stage"' EXIT
 export TAKT_TARGET="$target" TAKT_CACHE_DIR="$stage/cache"
+unset TAKT_USE_SYSTEM
 sh install.sh --bin-dir "$stage/installed bin"
 "$stage/installed bin/takt" --version
 "$stage/installed bin/takt" doctor
 
-# Any attempt to download now fails. The warm cache and installed PATH must work.
+# Any attempt to download now fails. Check the default cache and opt-in PATH reuse.
 mkdir "$stage/offline"
 cat > "$stage/offline/curl" <<'SH'
 #!/bin/sh
@@ -19,7 +20,7 @@ exit 99
 SH
 chmod +x "$stage/offline/curl"
 expected=$("$stage/installed bin/takt" --version)
-actual=$(PATH="$stage/offline:$PATH" TAKT_USE_SYSTEM=0 sh taktw --version)
+actual=$(PATH="$stage/offline:$PATH" sh taktw --version)
 test "$actual" = "$expected"
 actual=$(PATH="$stage/installed bin:$stage/offline:$PATH" TAKT_USE_SYSTEM=1 \
   TAKT_CACHE_DIR="$stage/unused-cache" sh taktw --version)
