@@ -72,6 +72,17 @@ the most recently started workload and does not claim reliable offender attribut
 Configuration is bounded to 1 MiB, depth 64, 100,000 parsed/expanded events, 1,024
 anchors/aliases, and 4 MiB retained parser data. Duplicate fields and explicit YAML
 tags are rejected. No includes, interpolation, or implicit dotenv loading occur.
+Default/task environment merging is bounded separately to 100,000 retained
+environment/unset entries and 8 MiB of names/values across defaults and normalized
+tasks. Budget checks precede inherited string copies; exceeding a budget produces
+configuration exit 2 with no environment values in the diagnostic.
+
+The selected graph's service ancestry is computed in dependency order, with
+limits of 100,000 retained entries, 8 MiB of copied ancestor names, and 1,000,000
+traversal/union steps. These bounds prevent compact graphs from expanding into
+unbounded planning memory or work. A graph exceeding them fails with policy exit
+3 before launch; select fewer tasks or split that run. Finite-only chains retain
+empty service-ancestor sets.
 
 Logs use a 1 MiB renderer queue and grouped storage of at most 64 MiB per task.
 Overflow is reported while pipes continue draining and readiness continues matching.

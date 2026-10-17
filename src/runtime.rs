@@ -5,7 +5,7 @@ use crate::{
     platform::{self, EnforcementMode, Protection},
     probes::Readiness,
     process::{LaunchSpec, ManagedChild},
-    scheduler::{Action, Budget, Scheduler, Snapshot, State},
+    scheduler::{Action, Budget, QueueReason, Scheduler, Snapshot, State},
 };
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 use serde_json::{Value, json};
@@ -207,7 +207,12 @@ pub fn run(
                 true
             }
         });
-        let sample_usage = now >= next_observation;
+        let needs_admission = scheduler
+            .states
+            .values()
+            .any(|state| matches!(state, State::Pending | State::Queued { .. }));
+        let sample_usage =
+            now >= next_observation && (needs_admission || protection.watchdog_enabled());
         if sample_usage {
             observation = platform::discover();
             next_observation = now + Duration::from_millis(200);
@@ -556,11 +561,16 @@ pub fn run(
             }
         }
         for (id, state) in &scheduler.states {
-            if let State::Queued { reason, .. } = state
-                && queue_reported.get(id) != Some(reason)
+            let reason = match state {
+                State::Pending => Some(QueueReason::DependencyWait),
+                State::Queued { reason, .. } => Some(*reason),
+                _ => None,
+            };
+            if let Some(reason) = reason
+                && queue_reported.get(id) != Some(&reason)
             {
                 output.emit("queue", Some(id), json!({"reason":reason}));
-                queue_reported.insert(id.clone(), *reason);
+                queue_reported.insert(id.clone(), reason);
             }
         }
         if scheduler.is_done() && running.is_empty() {

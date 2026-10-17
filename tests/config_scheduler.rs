@@ -345,6 +345,117 @@ fn shared_closure_is_selected_once() {
     assert!(graph::select(&config, &[]).is_err());
     assert!(graph::select(&config, &["missing".into()]).is_err());
 }
+
+#[test]
+fn environment_default_expansion_has_separate_entry_and_byte_budgets() {
+    let tasks: BTreeMap<_, _> = (0..100)
+        .map(|index| {
+            (
+                format!("t{index:03}"),
+                serde_json::json!({"kind":"task","command":["true"]}),
+            )
+        })
+        .collect();
+    let many_entries: BTreeMap<_, _> = (0..1_001)
+        .map(|index| (format!("V{index:04}"), "x"))
+        .collect();
+    for (defaults, expected) in [
+        (
+            serde_json::json!({"env":many_entries}),
+            "100,000 retained environment/unset entries",
+        ),
+        (
+            serde_json::json!({"env":{"SECRET":"private-value".repeat(12_000)}}),
+            "8 MiB of retained environment names/values",
+        ),
+    ] {
+        let source = serde_json::json!({"version":1,"defaults":defaults,"tasks":tasks}).to_string();
+        assert!(source.len() < config::MAX_INPUT_BYTES);
+        let error = config::parse(&source, Format::Json, Path::new("."))
+            .expect_err("small input cannot expand into unbounded inherited environments");
+        assert!(error.contains(expected), "{error}");
+        assert!(error.contains("reduce inherited environment data"));
+        assert!(!error.contains("private-value"));
+    }
+}
+
+#[test]
+fn overridden_or_removed_defaults_do_not_consume_expansion_budget() {
+    let tasks: BTreeMap<_, _> = (0..100)
+        .map(|index| {
+            let mut task = serde_json::json!({"kind":"task","command":["true"]});
+            if index % 2 == 0 {
+                task["env"] = serde_json::json!({"LARGE":"replacement"});
+            } else {
+                task["unset_env"] = serde_json::json!(["LARGE"]);
+            }
+            (format!("t{index:03}"), task)
+        })
+        .collect();
+    let source = serde_json::json!({
+        "version":1,"defaults":{"env":{"LARGE":"x".repeat(128 * 1024)}},"tasks":tasks
+    })
+    .to_string();
+    let config = config::parse(&source, Format::Json, Path::new(".")).unwrap();
+    assert_eq!(config.tasks["t000"].env["LARGE"], "replacement");
+    assert!(config.tasks["t001"].env.is_empty());
+    assert_eq!(config.tasks["t001"].unset_env, ["LARGE"]);
+}
+
+#[test]
+fn service_ancestry_expansion_is_bounded_before_scheduling() {
+    let mut config = base();
+    config.tasks.clear();
+    for index in 0..450 {
+        let mut service = task(1, 1);
+        service.kind = TaskKind::Service;
+        service.readiness = Some(Probe::Stdio {
+            stream: Stream::Stdout,
+            contains: "READY".into(),
+            timeout: None,
+        });
+        if index > 0 {
+            service.depends_on.push(Dependency::Ready {
+                task: format!("s{:04}", index - 1),
+            });
+        }
+        config.tasks.insert(format!("s{index:04}"), service);
+    }
+    graph::validate(&config).unwrap();
+    let selected = graph::select(&config, &["s0449".into()]).unwrap();
+    let error = Scheduler::new(&config, selected, budget(500, 500, 500))
+        .err()
+        .expect("service ancestry would otherwise retain over 100,000 entries");
+    assert!(error.contains("100,000 retained service-ancestor entries"));
+    assert!(error.contains("select fewer tasks or split this run"));
+}
+
+#[test]
+fn long_finite_dependency_chains_do_not_accumulate_service_ancestry() {
+    let mut config = base();
+    config.tasks.clear();
+    for index in 0..1_600 {
+        let mut finite = task(1, 1);
+        if index > 0 {
+            finite.depends_on.push(Dependency::Exit {
+                task: format!("t{:04}", index - 1),
+                codes: vec![0],
+            });
+        }
+        config.tasks.insert(format!("t{index:04}"), finite);
+    }
+    graph::validate(&config).unwrap();
+    let selected = graph::select(&config, &["t1599".into()]).unwrap();
+    let ancestry = graph::service_ancestry(&config, &selected.tasks).unwrap();
+    assert_eq!(ancestry.len(), 1_600);
+    assert!(ancestry.values().all(BTreeSet::is_empty));
+    let mut scheduler = Scheduler::new(&config, selected, budget(1, 1, 1)).unwrap();
+    assert_eq!(
+        launch_ids(&scheduler.tick(Duration::ZERO, &Snapshot::default())),
+        ["t0000"]
+    );
+}
+
 #[test]
 fn only_inferred_requests_shrink() {
     let config = base();

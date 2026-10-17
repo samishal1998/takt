@@ -2,13 +2,55 @@ name: Release
 on:
   push:
     tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag matching Cargo.toml, for example v0.1.0'
+        required: true
+        type: string
 permissions:
   contents: read
 jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate release tag against the package version
+        id: version
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' Cargo.toml)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            tag=$REQUESTED_TAG
+          else
+            tag=$GITHUB_REF_NAME
+            [[ "$GITHUB_REF" == "refs/tags/$tag" ]]
+          fi
+          [[ "$tag" == "v$version" ]] || { echo 'Release tag must equal v followed by the Cargo.toml version' >&2; exit 1; }
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            if lookup=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" 2>&1); then
+              echo 'Manual publication requires a new tag; existing tags use the tag-push workflow' >&2
+              exit 1
+            elif [[ "$lookup" != *"HTTP 404"* ]]; then
+              printf '%s\n' "$lookup" >&2
+              exit 1
+            fi
+          fi
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
   acceptance:
+    needs: prepare
     uses: ./.github/workflows/ci.yml
   publish:
-    needs: acceptance
+    needs: [prepare, acceptance]
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     permissions:
@@ -23,10 +65,12 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Verify archive set, tag, and checksums
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         shell: bash
         run: |
           cd dist
-          version=${GITHUB_REF_NAME#v}
+          version=${RELEASE_TAG#v}
           for target in x86_64-unknown-linux-gnu x86_64-unknown-linux-musl aarch64-apple-darwin; do
             test -f "takt-$version-$target.tar.gz"
             sha256sum -c "takt-$version-$target.tar.gz.sha256"
@@ -35,4 +79,22 @@ jobs:
       - name: Publish validated archives and measurements
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes dist/*.tar.gz dist/*.tar.gz.sha256 dist/SHA256SUMS dist/*-size.json dist/*-performance.json
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            # Acceptance takes several minutes: ensure nobody created the tag meanwhile.
+            if lookup=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" 2>&1); then
+              echo 'Refusing to reuse a tag created during acceptance' >&2
+              exit 1
+            elif [[ "$lookup" != *"HTTP 404"* ]]; then
+              printf '%s\n' "$lookup" >&2
+              exit 1
+            fi
+            tag_options=(--target "$GITHUB_SHA")
+          else
+            tag_options=(--verify-tag)
+          fi
+          gh release create "$RELEASE_TAG" "${tag_options[@]}" --generate-notes \
+            dist/*.tar.gz dist/*.tar.gz.sha256 dist/SHA256SUMS \
+            dist/*-size.json dist/*-performance.json

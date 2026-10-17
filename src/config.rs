@@ -16,6 +16,8 @@ use std::{
 pub const MAX_INPUT_BYTES: usize = 1024 * 1024;
 pub const MAX_DEPTH: usize = 64;
 pub const MAX_EVENTS: usize = 100_000;
+pub const MAX_NORMALIZED_ENV_ENTRIES: usize = 100_000;
+pub const MAX_NORMALIZED_ENV_BYTES: usize = 8 * 1024 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
     Yaml,
@@ -380,22 +382,52 @@ pub fn normalize(config: &mut Config, base_dir: &Path) -> Result<(), String> {
         return Err("scheduling.jobs must be positive".into());
     }
     validate_env("defaults", &config.defaults.env, &config.defaults.unset_env)?;
+    let mut env_budget = EnvironmentBudget::default();
+    for (key, value) in &config.defaults.env {
+        env_budget.charge(key.len(), value.len())?;
+    }
+    for key in &config.defaults.unset_env {
+        env_budget.charge(key.len(), 0)?;
+    }
     for (name, task) in &mut config.tasks {
         validate_env(name, &task.env, &task.unset_env)?;
         task.resources.inherit(config.defaults.resources);
         task.limits.inherit(config.defaults.limits);
         task.timeout = task.timeout.or(config.defaults.timeout);
         task.stop_grace = task.stop_grace.or(config.defaults.stop_grace);
-        let mut env = config.defaults.env.clone();
-        let mut unset: BTreeSet<_> = config.defaults.unset_env.iter().cloned().collect();
+        let task_unset: BTreeSet<_> = task.unset_env.iter().collect();
+        // Charge the final merged representation using borrowed strings first.
+        // Overridden defaults never need to be copied, even temporarily.
+        for (key, value) in &config.defaults.env {
+            if !task.env.contains_key(key) && !task_unset.contains(key) {
+                env_budget.charge(key.len(), value.len())?;
+            }
+        }
         for (key, value) in &task.env {
-            unset.remove(key);
-            env.insert(key.clone(), value.clone());
+            env_budget.charge(key.len(), value.len())?;
+        }
+        for key in &config.defaults.unset_env {
+            if !task.env.contains_key(key) && !task_unset.contains(key) {
+                env_budget.charge(key.len(), 0)?;
+            }
         }
         for key in &task.unset_env {
-            env.remove(key);
-            unset.insert(key.clone());
+            env_budget.charge(key.len(), 0)?;
         }
+        let mut env = BTreeMap::new();
+        for (key, value) in &config.defaults.env {
+            if !task.env.contains_key(key) && !task_unset.contains(key) {
+                env.insert(key.clone(), value.clone());
+            }
+        }
+        let mut unset = BTreeSet::new();
+        for key in &config.defaults.unset_env {
+            if !task.env.contains_key(key) && !task_unset.contains(key) {
+                unset.insert(key.clone());
+            }
+        }
+        env.append(&mut task.env);
+        unset.extend(task.unset_env.drain(..));
         task.env = env;
         task.unset_env = unset.into_iter().collect();
         let cwd = task.cwd.as_deref().unwrap_or(Path::new("."));
@@ -409,6 +441,33 @@ pub fn normalize(config: &mut Config, base_dir: &Path) -> Result<(), String> {
         });
     }
     Ok(())
+}
+
+#[derive(Default)]
+struct EnvironmentBudget {
+    entries: usize,
+    bytes: usize,
+}
+impl EnvironmentBudget {
+    fn charge(&mut self, key_bytes: usize, value_bytes: usize) -> Result<(), String> {
+        let limit = if self.entries == MAX_NORMALIZED_ENV_ENTRIES {
+            Some("100,000 retained environment/unset entries")
+        } else if key_bytes > MAX_NORMALIZED_ENV_BYTES - self.bytes
+            || value_bytes > MAX_NORMALIZED_ENV_BYTES - self.bytes - key_bytes
+        {
+            Some("8 MiB of retained environment names/values")
+        } else {
+            None
+        };
+        if let Some(limit) = limit {
+            return Err(format!(
+                "configuration exceeds normalization budget of {limit}; reduce inherited environment data or split the configuration"
+            ));
+        }
+        self.entries += 1;
+        self.bytes += key_bytes + value_bytes;
+        Ok(())
+    }
 }
 fn validate_env(
     context: &str,

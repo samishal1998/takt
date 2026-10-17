@@ -56,6 +56,7 @@ pub struct Output {
     run_id: String,
     dropped: BTreeMap<(String, String), u64>,
     spool_dir: PathBuf,
+    spool_owned: bool,
 }
 
 fn owned_fd(fd: RawFd) -> io::Result<File> {
@@ -82,6 +83,7 @@ impl Output {
         );
         let spool_dir = std::env::temp_dir().join(format!("takt-{run_id}"));
         let mut spool_warning = None;
+        let mut spool_owned = false;
         if mode == Mode::Grouped {
             use std::os::unix::fs::DirBuilderExt;
             if let Err(error) = std::fs::DirBuilder::new().mode(0o700).create(&spool_dir) {
@@ -89,6 +91,8 @@ impl Output {
                 spool_warning = Some(format!(
                     "grouped output unavailable: {error}; using plain output"
                 ));
+            } else {
+                spool_owned = true;
             }
         }
         let shared = Arc::new(Shared {
@@ -104,7 +108,7 @@ impl Output {
         let worker_shared = shared.clone();
         let worker_dir = spool_dir.clone();
         let (done_tx, done) = mpsc::channel();
-        std::thread::Builder::new()
+        let worker = std::thread::Builder::new()
             .name("takt-output".into())
             .spawn(move || {
                 let result = render(worker_shared.clone(), mode, stdout, stderr, worker_dir);
@@ -112,7 +116,13 @@ impl Output {
                     worker_shared.failed.store(true, Ordering::Release);
                 }
                 let _ = done_tx.send(());
-            })?;
+            });
+        if let Err(error) = worker {
+            if spool_owned {
+                let _ = std::fs::remove_dir_all(&spool_dir);
+            }
+            return Err(error);
+        }
         let mut output = Self {
             shared,
             done,
@@ -120,6 +130,7 @@ impl Output {
             run_id,
             dropped: BTreeMap::new(),
             spool_dir,
+            spool_owned,
         };
         if let Some(message) = spool_warning {
             output.emit("warning", None, json!({"message": message}));
@@ -211,7 +222,9 @@ impl Output {
         }
         let delivered = self.done.recv_timeout(Duration::from_secs(1)).is_ok() && !self.failed();
         // Unlink owned files even when the writer is blocked. Never await its destructor.
-        let _ = std::fs::remove_dir_all(&self.spool_dir);
+        if self.spool_owned {
+            let _ = std::fs::remove_dir_all(&self.spool_dir);
+        }
         delivered
     }
 }
@@ -221,7 +234,9 @@ impl Drop for Output {
             queue.closed = true;
             self.shared.wake.notify_one();
         }
-        let _ = std::fs::remove_dir_all(&self.spool_dir);
+        if self.spool_owned {
+            let _ = std::fs::remove_dir_all(&self.spool_dir);
+        }
     }
 }
 
@@ -346,13 +361,44 @@ fn render(
                     &bytes,
                 )?;
             }
+        } else if event == "run_started" {
+            let budget = &message.event["budget"];
+            let cpu = budget["cpu_millicores"].as_u64().unwrap_or(0) as f64 / 1000.0;
+            let memory = budget["memory_bytes"]
+                .as_u64()
+                .map(|bytes| format!("{:.1} MiB", bytes as f64 / 1_048_576.0))
+                .unwrap_or_else(|| "unknown".into());
+            writeln!(
+                stderr,
+                "[takt] budget: {} jobs, {cpu:.3} CPU cores, {memory} memory",
+                budget["jobs"]
+            )?;
+        } else if event == "capabilities" {
+            let capabilities = &message.event["capabilities"];
+            writeln!(
+                stderr,
+                "[takt] protection: CPU {}; memory {}; processes {}",
+                capabilities["cpu"].as_str().unwrap_or("unknown"),
+                capabilities["aggregate_memory"]
+                    .as_str()
+                    .unwrap_or("unknown"),
+                capabilities["process_tree_containment"]
+                    .as_str()
+                    .unwrap_or("unknown")
+            )?;
+            if let Some(details) = capabilities["details"].as_array() {
+                for detail in details.iter().filter_map(Value::as_str) {
+                    writeln!(stderr, "[takt] {detail}")?;
+                }
+            }
         } else if event == "task_finished" {
             if mode == Mode::Grouped {
                 flush_task(task, &mut spools, &mut stdout, &mut stderr)?;
             }
             writeln!(
                 stderr,
-                "[{task}] {}{}",
+                "[{task}] {}: {}{}",
+                message.event["kind"].as_str().unwrap_or("finished"),
                 message.event["reason"].as_str().unwrap_or("finished"),
                 message
                     .event
@@ -368,8 +414,16 @@ fn render(
             }
             writeln!(
                 stderr,
-                "[takt] finished (exit {})",
-                message.event["exit_code"]
+                "[takt] finished (exit {}): {}",
+                message.event["exit_code"],
+                message.event["counts"]
+                    .as_object()
+                    .map(|counts| counts
+                        .iter()
+                        .map(|(kind, count)| format!("{kind}={count}"))
+                        .collect::<Vec<_>>()
+                        .join(", "))
+                    .unwrap_or_default()
             )?;
         } else if matches!(
             event,

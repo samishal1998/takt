@@ -35,12 +35,22 @@ and the baseline is explicitly updated.
 
 ## Publish
 
-The tag workflow accepts `vVERSION` tags. Its reusable validation workflow must
+The Release workflow accepts `vVERSION` tag pushes or a manual dispatch with a
+`tag` input, for example `v0.1.0`. The tag must exactly match the package version
+in `Cargo.toml`. A manual dispatch requires an unused tag and creates it at the selected workflow
+commit when publication succeeds. Its reusable validation workflow must
 finish successfully before publishing. This includes native checks, both Linux
 controller lanes, extracted-artifact tests, and the actual Linux 5.15/glibc 2.35
 guest. The publication step checks that all three archive names match the tag and
 verifies their checksum files before creating the GitHub release. It attaches the
-three archives, one `SHA256SUMS` manifest, and per-target measurement JSON.
+three archives, their individual checksum files, one `SHA256SUMS` manifest,
+and per-target size and performance measurement JSON. Both release entry points
+run the expanded 2,048-case property suite before publication.
+
+After reviewing a commit, start the manual path with
+`gh workflow run release.yml --ref main -f tag=v0.1.0`, substituting the intended
+ref and package version. GitHub's workflow token creates the tag without starting
+a second tag-push workflow. Existing tag pushes verify their tag before publishing.
 
 Before creating a tag, review the complete handoff acceptance inventory and attach
 evidence for cases beyond the automatic lanes described in [testing.md](testing.md).

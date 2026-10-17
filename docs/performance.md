@@ -55,3 +55,78 @@ macOS performance measurement.
 
 The macOS adapter follows Apple's [proc task information layout](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/proc_info.h)
 and [Mach task accounting implementation](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/bsd_kern.c).
+
+## Initial Linux VPS observation
+
+The [raw report](evidence/linux-vps-performance.json) records the GNU release
+executable measured on 2026-10-17, SHA-256
+`8aa35a847a9f21d12fd88d5c9d44d4a7d8cb77daec4c78cab41e62b007621a75`.
+It is an implementation checkpoint, not the final release artifact or a CI
+measurement. The host ran Linux 6.8.0-79-generic, glibc 2.39, and eight logical
+CPUs; starting load averages were 3.14, 4.90, and 4.68. Other processes were active
+on this shared VPS. No native macOS result is implied.
+
+| Measurement | Observed | Initial goal |
+| --- | ---: | ---: |
+| Executable size | 2,159,064 bytes | Below 1,000,000 bytes: missed |
+| Supervisor idle RSS, median and maximum | 3.75 MiB | Below 5 MiB: met |
+| Supervisor CPU over 60.0006 seconds | 2.18 CPU seconds; 3.63% of one core | Below 0.1%: missed |
+| Sleeping fixture reference CPU | 0 observed CPU ticks | Noise reference only |
+| Version startup, median [min, max] | 1.074 [1.048, 1.605] ms | No threshold |
+| Direct finite execution, median [min, max] | 11.971 [11.491, 17.096] ms | No threshold |
+
+Default `auto` enforcement used the fallback memory watchdog because this
+invocation could not create a hard-protection subtree. Its process-group RSS
+sampling scans visible `/proc` entries, so other processes on the VPS increase
+observation work. That is a source of overhead in the implementation; this
+measurement does not isolate how much of the CPU total it caused. The default
+idle CPU and executable-size goals are unmet. Neither result is hidden by the
+passing RSS goal or presented as an optimized result.
+
+Eight identical fixed computation commands produced the following wall times.
+The shell runs the same arguments with the same maximum active concurrency;
+both paths use enforcement `off`. Values are medians [minimum, maximum] of seven
+samples after a warm-up.
+
+| Active slots | Takt (ms) | Portable shell (ms) |
+| ---: | ---: | ---: |
+| 1 | 100.469 [88.205, 121.454] | 30.001 [28.030, 35.561] |
+| 2 | 78.322 [71.959, 96.174] | 17.731 [15.690, 21.881] |
+| 4 | 70.262 [65.197, 87.685] | 9.131 [8.767, 10.957] |
+
+Takt took longer than the shell for these small finite commands at every tested
+concurrency. These numbers describe scheduling and process-management overhead
+for this fixture and do not establish performance for larger application work.
+
+| Additional Takt workload | Wall time, median [min, max] (ms) |
+| --- | ---: |
+| Mixed computation, 8 MiB allocation, and waiting | 124.104 [122.542, 135.434] |
+| Sixteen tiny finite tasks | 144.601 [132.963, 155.268] |
+| 1 MiB output on each stream | 16.463 [13.538, 17.788] |
+| Ready service plus finite dependent | 25.253 [21.573, 26.858] |
+
+## Repository check comparison
+
+`scripts/measure-repository.py` compares the repository's format, lint, fixture
+build, and test commands with a portable shell. The test command depends on a
+successful fixture build in both paths. Two command slots are available; Cargo
+itself uses two build jobs, tests use one test thread, and both paths inherit the
+same environment and send both output streams to `/dev/null`. The generated
+configuration and shell script are retained with the report.
+
+Run this only after independently checking the source and warming its build
+cache, with other builds stopped:
+
+```sh
+python3 scripts/measure-repository.py \
+  target/release/takt target/repository-performance-evidence
+```
+
+Each runner receives one warm-up followed by three measured executions in
+alternating order. Each execution has an independent 30-second deadline.
+Enforcement is `off` for the comparison; explicit requests make two slots
+available and are not OS memory limits. The script saves exit-checked wall
+times, medians and spreads, the executable and input hashes, commands,
+dependencies, and environment overrides. Cargo's shared cache and build lock
+are part of this real repository workload. A small timing difference on this
+shared host does not establish a speed advantage.

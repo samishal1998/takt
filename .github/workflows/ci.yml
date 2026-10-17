@@ -17,7 +17,7 @@ env:
   RUST_TEST_THREADS: '1'
   CARGO_TERM_COLOR: always
   MACOSX_DEPLOYMENT_TARGET: '15.0'
-  PROPTEST_CASES: ${{ github.event_name == 'schedule' && '2048' || '256' }}
+  PROPTEST_CASES: ${{ (github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/') || github.workflow == 'Release') && '2048' || '256' }}
 jobs:
   native:
     name: Native ${{ matrix.target }}
@@ -60,6 +60,18 @@ jobs:
           name: native-${{ matrix.target }}
           path: dist/
           if-no-files-found: error
+          retention-days: 14
+      - name: Retain generated property-test regression seeds
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: property-failures-${{ matrix.target }}
+          path: |
+            proptest-regressions/
+            tests/*.proptest-regressions
+            tests/proptest-regressions/
+            src/proptest-regressions/
+          if-no-files-found: ignore
           retention-days: 14
   linux-safety:
     name: Real Linux controllers

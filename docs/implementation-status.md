@@ -13,28 +13,32 @@ is `rustc 1.99.0 (b940084d7 2026-09-28)`.
 | Check | Confirmed result |
 |---|---|
 | `cargo check --workspace --all-targets -j2` | Passed after adapting imports/options to parser 2.0 APIs |
-| `cargo test --test config_scheduler -j2` | 34 passed, including generated-DAG/weighted-admission properties, explicit-auto provenance, alias-expansion budgets, and failures observed before cleanup |
-| Independent library unit tests | 13 passed |
-| `cargo test --test integration -j2 -- --test-threads=1` | 31 passed, with every parsed NDJSON event checked against the published schema |
+| `cargo test --test config_scheduler -j2` | 38 passed, including generated-DAG/weighted-admission properties, explicit-auto provenance, alias/default/ancestry expansion budgets, and failures observed before cleanup |
+| Independent library unit tests | 14 passed, including inherited parent cpuset discovery |
+| `cargo test --test integration -j2 -- --test-threads=1` | 32 passed, including non-UTF policy-environment validation. Every parsed NDJSON event is checked against the published schema |
 | Probe/output checks | Eight passed |
 | Configuration schema | Seven maintained YAML/JSON examples validated structurally and against Rust parsing/graph rules |
 | macOS cross-check | Library cross-check passed; no native macOS execution is implied |
 | `cargo test --test events_schema -j2` | Three passed: event payload/envelope rejection, neutral-skip summary, and configuration-schema examples |
-| `cargo clippy --workspace --all-targets -j2 -- -D warnings` | Passed after schema-validator integration; final pipeline rerunning after cancellation and poll-error cleanup fixes |
-| `process_lifecycle` independent tests | Four default tests passed in 0.44 s; two capability-gated cases ignored outside their required environments |
+| `cargo clippy --workspace --all-targets -j2 -- -D warnings` | Passed after normalization/ancestry expansion budgets, inherited cpuset discovery, CLI validation, and runtime cleanup fixes |
+| `process_lifecycle` independent tests | Four default tests passed in 0.47 s; two capability-gated cases ignored outside their required environments |
 | Real Linux protection | Nine bounded GNU debug controller cases and the required loader-constructor containment test passed inside a delegated user systemd unit |
+| musl release execution | The GNU-hosted independent harness ran 31 integration and four lifecycle cases successfully with its executable override pointing to the musl release artifact |
 | Release measurements | No reviewed executable-size/RSS/idle-CPU baseline recorded at this checkpoint |
 
-Tests and counts will increase during integration. Update this table with the final
-commands and outcomes instead of treating an earlier passing checkpoint as evidence
-for later edits. Root-level workflow logs and retained artifacts are the authority
-for remote gates.
+The complete local `cargo test --workspace -j2 -- --test-threads=1` checkpoint
+contains 99 passing tests: 14 library, 38 configuration/scheduler, three schema,
+32 integration, eight probe/output, and four process-lifecycle tests, with two
+explicitly gated lifecycle proofs ignored in that default invocation. Update this
+table with later commands and outcomes instead of treating an earlier checkpoint
+as evidence for later edits. Root-level workflow logs and retained artifacts are
+the authority for remote gates.
 
 ## Requirement traceability
 
 | Handoff cases | Implementation/evidence | Remaining acceptance work |
 |---|---|---|
-| C01, C03–C07, C09–C11 | Strict parser, graph validation, defaults/env/cwd handling; config tests reject duplicate keys, tags, deep/large/alias-heavy input, invalid units, missing references, cycles, and service-edge mismatches | Retain failing-seed/fuzz evidence before release; event/config schemas now join independent validation |
+| C01, C03–C07, C09–C11 | Strict parser, graph validation, defaults/env/cwd handling; config tests reject duplicate keys, tags, deep/large/alias-heavy input, invalid units, missing references, cycles, and service-edge mismatches; compact default environments and service ancestry cannot exceed documented expansion budgets | Retain failing-seed/fuzz evidence before release; event/config schemas now join independent validation |
 | C02, C08 | CLI precedence/provenance, explicit-auto file metadata, and explicit argv/shell execution; independent exact-argument and precedence tests pass | Final native matrix remains |
 | S01–S07, S09–S10 | Injected clock/snapshots; weighted reservations, fractional CPU, explicit-versus-inferred requests, memory-pressure accounting, FIFO/aging, separate queue deadline; deterministic/property tests pass | Native measured discovery evidence on all targets, including unknown/hidden constraints |
 | S08, S16 | Static ancestor-service and live-service deadlock checks; shared temporary-service lifetime tests; unfinished prerequisites retain required services after a root skips | Native service/cleanup races on both operating systems |
@@ -43,20 +47,20 @@ for remote gates.
 | R01–R09 | TCP/HTTP/UDP and stdio matcher implemented; initial black-box probe tests pass; DNS workers and responses are bounded | Final slow-DNS, malformed/oversized HTTP, peer-validation, immediate/split-output and deadline cases across all artifacts |
 | R10–R14 | Unexpected exit, future-dependent blocking, default active-consumer continuation, optional transitive cancellation, finite versus persistent roots | Native race and persistent-service interruption evidence |
 | P01–P03, P10–P14 | Concurrent pipe draining, bounded renderer/spool queues, byte-safe NDJSON, output truncation/failure paths; blocked/broken consumer and grouped-directory failure tests pass; live schema validation checks sequences and summary counts | Expanded spool-disk failure/size-limit and cross-platform output evidence |
-| P04–P08 | Separate process groups; controlled attach-before-exec helper; graceful/forced cancellation; cleanup before reservation release; spawn versus exit classification | Current descendant-cleanup and signal-race fixture expansion must pass independently |
+| P04–P08 | Separate process groups; controlled attach-before-exec helper; graceful/forced cancellation; cleanup before reservation release; spawn versus exit classification; descendant-cleanup and signal-race regressions pass on GNU, with the lifecycle harness also passing against musl | Native macOS lifecycle and cancellation evidence |
 | P09 | Portable parent-death cleanup is not promised; release safety workflow retains external systemd cleanup | Execute and retain supervisor-death controller test |
 | L01–L10 | Local GNU debug proof covers per-task/aggregate OOM, 0.1 CPU quota, immediate/detached descendants, zero-swap capability, exit 137, repeated cleanup, and loader-constructor attachment | Release GNU/musl artifacts, denied/read-only delegation (L06), ancestor-ceiling variants (L07), absent-swap variant, and remote safety gate |
 | Native macOS | Native adapters and refusal/fallback implementation; Apple Silicon native workflow configured | Execute applicable process/probe/cancellation/watchdog suite on macOS 15 |
-| Artifact compatibility | GNU/musl/macOS packaging, dependency checks, extracted-binary tests, and checksum generation configured; Linux baseline guest lane defined | Native extracted artifacts on all three targets; actual Linux 5.15/glibc 2.35 guest execution |
+| Artifact compatibility | GNU/musl/macOS packaging, dependency checks, extracted-binary tests, and checksum generation configured; independent integration/lifecycle harness passes against the local musl release executable; Linux baseline guest lane defined | Native extracted archives on all three targets; actual Linux 5.15/glibc 2.35 guest execution |
 | Performance/size | Measurement and regression scripts present; production has no fixture/schema-validation dependency | Publish measured size, linked dependencies, startup/RSS/idle CPU, representative workloads, and reviewed baseline |
 
 ## Milestone gates
 
 | Milestone | Current interpretation |
 |---|---|
-| M0 | Decisions, package scaffold, dependencies, parser model, and launch/protection implementation exist; native containment evidence is still required |
+| M0 | Decisions, package scaffold, dependencies, parser model, and launch/protection implementation exist; local bounded GNU containment evidence passes, while remaining native target evidence is required |
 | M1 | Finite runner has passed the initial independent GNU Linux suite; macOS and final process/output cases remain |
-| M2 | Configuration/graph/scheduler, CLI explicit-auto provenance, and event-schema integration pass locally, including properties; final independent pipeline is rerunning after runtime cleanup changes |
+| M2 | Configuration/graph/scheduler, CLI explicit-auto provenance, and event-schema integration pass locally, including properties; the independent GNU pipeline passes after runtime cleanup changes |
 | M3 | Local bounded GNU controller proof passed; full target matrix and L06/L07/absent-swap variants remain |
 | M4 | All four probes and service policies are implemented; final cross-platform race/deadline evidence remains |
 | M5 | Renderers, schemas, diagnostics, documentation, blocked-consumer and live event-contract checks pass locally; remaining artifact/platform gates still apply |

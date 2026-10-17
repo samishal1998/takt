@@ -62,7 +62,10 @@ a child leaf before enabling delegated controllers. It never modifies shared hos
 controller policy. Missing delegation or a mismatched external boundary fails
 the job.
 
-`scripts/linux-safety.py` uses an independent subprocess harness with four-second
+The ordinary workload cases run as the unprivileged delegated runner. The setup
+retains parent and supervisor controller values in `delegation-base.json` and
+`delegation-extended.json`, plus the independently read outer unit properties, before any
+loader or workload test. `scripts/linux-safety.py` uses an independent subprocess harness with four-second
 case deadlines and at most 2 MiB captured output per stream. It records controller
 values/counters and raw NDJSON for per-task OOM, aggregate OOM, CPU bandwidth,
 immediate and detached descendants, exit 137, and repeated cleanup. The actual
@@ -72,16 +75,17 @@ remains the cleanup boundary if the supervisor or test harness fails.
 
 The privileged extended script additionally uses private mount namespaces for
 read-only controller refusal/fallback, drops privileges for denied-delegation
-refusal, checks real intermediate CPU/memory ceilings, and verifies reported swap
-capability against available controller files. A separate transient systemd unit
+refusal, and checks real intermediate CPU/memory ceilings. The unprivileged lane
+verifies reported swap capability against available controller files. A separate transient systemd unit
 tests cleanup after the Takt supervisor receives SIGKILL. These cases run only in
 the disposable hosted VM. An absent swap-controller branch is conditional on
 actual kernel capability and must not be reported as exercised on a capable host.
 
 Native process tests cover ignored signals, second-interrupt acceleration,
 surviving descendants, blocked/broken output, grouped spool cleanup/fallback, and
-loader environment isolation. Streaming matcher property tests run routinely;
-the scheduled weekly lane expands the configured property-test case count. Link
+loader environment isolation. Property tests run 256 cases routinely and 2,048
+cases in the scheduled weekly and release lanes, including manual releases. Failed native jobs retain
+generated regression seeds in separate `property-failures-*` artifacts. Link
 the actual run evidence for these checks separately from source-level coverage.
 
 The privileged namespace provisioning script belongs in its disposable CI

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'status=$?; printf "Compatibility smoke failed at line %s (exit %s)\n" "$LINENO" "$status" >&2' ERR
 [[ $(uname -r) == 5.15.* ]]
 [[ $(getconf GNU_LIBC_VERSION) == 'glibc 2.35' ]]
 uname -a
@@ -23,14 +24,18 @@ EOF
   "$binary" validate --file /tmp/takt-compatibility/takt.json
   "$binary" run consumer --file /tmp/takt-compatibility/takt.json
   # Each libc variant resolves localhost through its own resolver path.
-  "$fixture" tcp 5000 > /tmp/takt-compatibility/server.txt &
+  server_output="/tmp/takt-compatibility/server-$target.txt"
+  # Create an empty handshake file before launching; a previous target's data
+  # must never satisfy this target's readiness check.
+  : > "$server_output"
+  "$fixture" tcp 5000 > "$server_output" &
   server_pid=$!
   trap 'kill "$server_pid" 2>/dev/null || true' EXIT
   for attempt in {1..100}; do
-    if [[ -s /tmp/takt-compatibility/server.txt ]]; then break; fi
+    if [[ -s "$server_output" ]]; then break; fi
     sleep 0.01
   done
-  read -r ready address < /tmp/takt-compatibility/server.txt
+  read -r ready address < "$server_output"
   [[ "$ready" == READY ]]
   port=${address##*:}
   cat > /tmp/takt-compatibility/probe.json <<EOF

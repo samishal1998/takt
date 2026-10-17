@@ -55,6 +55,19 @@ data. JSON duplicate checking streams values before typed deserialization instea
 of retaining a second full value tree. CPU precision is checked before floating
 point conversion and stored as integer millicores.
 
+Environment normalization retains at most 100,000 environment/unset entries and
+8 MiB of their names/values across defaults and merged tasks. These limits are
+checked before copying inherited strings; overridden or removed defaults are not
+copied. Exceeding them is a configuration error recommending smaller inherited
+environment data or separate configuration files.
+
+Planning has separate expansion budgets: at most 100,000 retained service-ancestor
+entries, 8 MiB of copied ancestor names, and 1,000,000 ancestry traversal/union
+steps per selected graph. Ancestry is computed in dependency order; finite-only
+chains do not create quadratic ancestry storage. Exceeding a planning budget
+returns an actionable policy error before any command starts. Select fewer tasks
+or split a run when its service dependency expansion exceeds these bounds.
+
 ## Scheduling and lifecycle defaults
 
 | Policy | Default |

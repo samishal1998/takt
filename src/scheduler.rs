@@ -95,7 +95,6 @@ impl Scheduler {
         }
         let mut tasks = BTreeMap::new();
         let mut requests = BTreeMap::new();
-        let mut service_ancestors = BTreeMap::new();
         for id in &selection.tasks {
             let task = config
                 .tasks
@@ -124,10 +123,10 @@ impl Scheduler {
                     budget.memory.unwrap_or(0)
                 ));
             }
-            service_ancestors.insert(id.clone(), graph::service_ancestors(config, id));
             requests.insert(id.clone(), request);
             tasks.insert(id.clone(), task);
         }
+        let service_ancestors = graph::service_ancestry(config, &selection.tasks)?;
         // An ancestor service cannot release its reservation before its consumer executes.
         for (id, ancestors) in &service_ancestors {
             let request = requests[id];

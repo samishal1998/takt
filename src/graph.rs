@@ -316,28 +316,68 @@ pub fn topological(config: &Config, selected: BTreeSet<String>) -> Result<Vec<St
             .to_owned();
     }
 }
-/// Services reachable from a root remain needed until that root settles.
-pub fn service_ancestors(config: &Config, id: &str) -> BTreeSet<String> {
-    let mut seen = BTreeSet::new();
-    let mut services = BTreeSet::new();
-    let mut pending = vec![id.to_owned()];
-    while let Some(id) = pending.pop() {
-        if !seen.insert(id.clone()) {
-            continue;
-        }
-        if let Some(task) = config.tasks.get(&id) {
-            for edge in &task.depends_on {
-                let parent = edge.task();
-                if config
-                    .tasks
-                    .get(parent)
-                    .is_some_and(|t| t.kind == TaskKind::Service)
-                {
-                    services.insert(parent.to_owned());
+pub const MAX_SERVICE_ANCESTOR_ENTRIES: usize = 100_000;
+pub const MAX_SERVICE_ANCESTOR_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_ANCESTRY_STEPS: usize = 1_000_000;
+
+/// Services reachable from a task remain needed until that task settles.
+/// Compute each parent once; account for retained data before copying any name.
+pub fn service_ancestry(
+    config: &Config,
+    selected: &BTreeSet<String>,
+) -> Result<BTreeMap<String, BTreeSet<String>>, String> {
+    let mut ancestry: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let (mut entries, mut bytes, mut steps) = (0, 0, 0);
+    for id in topological(config, selected.clone())? {
+        let mut services = BTreeSet::new();
+        for edge in &config.tasks[&id].depends_on {
+            ancestry_step(&mut steps)?;
+            let parent = edge.task();
+            let parent_ancestors = ancestry
+                .get(parent)
+                .ok_or_else(|| format!("selected graph is missing dependency `{parent}`"))?;
+            let parent_service = (config.tasks[parent].kind == TaskKind::Service).then_some(parent);
+            for ancestor in parent_ancestors
+                .iter()
+                .map(String::as_str)
+                .chain(parent_service)
+            {
+                ancestry_step(&mut steps)?;
+                if services.contains(ancestor) {
+                    continue;
                 }
-                pending.push(parent.to_owned());
+                if entries == MAX_SERVICE_ANCESTOR_ENTRIES {
+                    return Err(ancestry_budget_error(
+                        "100,000 retained service-ancestor entries",
+                    ));
+                }
+                if ancestor.len() > MAX_SERVICE_ANCESTOR_BYTES - bytes {
+                    return Err(ancestry_budget_error(
+                        "8 MiB of retained service-ancestor names",
+                    ));
+                }
+                entries += 1;
+                bytes += ancestor.len();
+                services.insert(ancestor.to_owned());
             }
         }
+        ancestry.insert(id, services);
     }
-    services
+    Ok(ancestry)
+}
+
+fn ancestry_step(steps: &mut usize) -> Result<(), String> {
+    if *steps == MAX_ANCESTRY_STEPS {
+        return Err(ancestry_budget_error(
+            "1,000,000 service-ancestry planning steps",
+        ));
+    }
+    *steps += 1;
+    Ok(())
+}
+
+fn ancestry_budget_error(limit: &str) -> String {
+    format!(
+        "selected dependency graph exceeds planning budget of {limit}; select fewer tasks or split this run"
+    )
 }

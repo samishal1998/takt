@@ -34,5 +34,7 @@ timeout --signal=TERM --kill-after=10s 600s qemu-system-x86_64 \
   -drive "file=$work/guest.img,format=qcow2,if=virtio" \
   -drive "file=$work/seed.iso,media=cdrom,readonly=on" \
   -nic none 2>&1 | tee dist/compatibility/guest-serial.log
-grep -q '^TAKT_COMPATIBILITY_PASS' dist/compatibility/guest-serial.log
-! grep -q '^TAKT_COMPATIBILITY_FAIL' dist/compatibility/guest-serial.log
+# Cloud-init forwards script output with a timestamp and service prefix; require
+# the complete final token while accepting that prefix and serial CRLF endings.
+grep -Eq '(^|[[:space:]])TAKT_COMPATIBILITY_PASS[[:space:]]*$' dist/compatibility/guest-serial.log
+! grep -Eq '(^|[[:space:]])TAKT_COMPATIBILITY_FAIL[[:space:]]*$' dist/compatibility/guest-serial.log

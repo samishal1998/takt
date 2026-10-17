@@ -709,8 +709,25 @@ fn unlimited_leaf(leaf: &Path, parent: &Path) -> bool {
         _ => return false,
     }
     for name in ["cpuset.cpus.effective", "cpuset.mems.effective"] {
-        if bounded_text(leaf.join(name)).ok() != bounded_text(parent.join(name)).ok() {
-            return false;
+        match bounded_text(leaf.join(name)) {
+            Ok(value) => {
+                if !bounded_text(parent.join(name))
+                    .is_ok_and(|inherited| value.trim() == inherited.trim())
+                {
+                    return false;
+                }
+            }
+            // Without cpuset enabled below the parent, the leaf inherits the
+            // parent's placement and has no cpuset files of its own. A sibling
+            // then retains that same ceiling. Other read errors are unknown.
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                if !bounded_text(parent.join("cgroup.subtree_control"))
+                    .is_ok_and(|value| !value.split_whitespace().any(|word| word == "cpuset"))
+                {
+                    return false;
+                }
+            }
+            Err(_) => return false,
         }
     }
     true
@@ -836,5 +853,39 @@ mod tests {
     fn tiny_cpu_quota_respects_kernel_minimum() {
         assert_eq!(cpu_max(1).unwrap(), "1000 1000000");
         assert_eq!(cpu_max(250).unwrap(), "25000 100000");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn supervisor_without_enabled_cpuset_inherits_parent_ceiling() {
+        let directory = tempfile::tempdir().unwrap();
+        let parent = directory.path();
+        let leaf = parent.join("supervisor");
+        fs::create_dir(&leaf).unwrap();
+        fs::write(parent.join("cgroup.subtree_control"), "cpu memory pids\n").unwrap();
+        fs::write(parent.join("cpuset.cpus.effective"), "0-3\n").unwrap();
+        fs::write(parent.join("cpuset.mems.effective"), "0\n").unwrap();
+        for name in ["memory.max", "memory.high", "memory.swap.max", "pids.max"] {
+            fs::write(leaf.join(name), "max\n").unwrap();
+        }
+        fs::write(leaf.join("cpu.max"), "max 100000\n").unwrap();
+        assert!(unlimited_leaf(&leaf, parent));
+
+        // A missing file cannot stand in for a controller that is enabled.
+        fs::write(
+            parent.join("cgroup.subtree_control"),
+            "cpu memory cpuset pids\n",
+        )
+        .unwrap();
+        assert!(!unlimited_leaf(&leaf, parent));
+        fs::write(leaf.join("cpuset.cpus.effective"), "0-3\n").unwrap();
+        fs::write(leaf.join("cpuset.mems.effective"), "0\n").unwrap();
+        assert!(unlimited_leaf(&leaf, parent));
+
+        fs::write(leaf.join("cpuset.cpus.effective"), "0-1\n").unwrap();
+        assert!(!unlimited_leaf(&leaf, parent));
+        fs::write(leaf.join("cpuset.cpus.effective"), "0-3\n").unwrap();
+        fs::write(leaf.join("memory.max"), "67108864\n").unwrap();
+        assert!(!unlimited_leaf(&leaf, parent));
     }
 }
