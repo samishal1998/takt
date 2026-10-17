@@ -52,6 +52,11 @@ discovery ambiguity, and ordinary exit 137. Native macOS additionally checks
 required aggregate-memory refusal. Pure model/platform tests complement these
 process tests; none substitutes for real controller evidence.
 
+Grouped-output tests also inject partial disk-full and zero-length writes, then
+simulate disk recovery. They verify exact retained/truncated byte counts, no retry
+after failure, the shared stdout/stderr cap, independent task budgets, and spool
+cleanup with a small test limit.
+
 ## Real Linux controller lane
 
 The dedicated `linux-safety` jobs run GNU and musl builds on disposable
@@ -77,7 +82,11 @@ remains the cleanup boundary if the supervisor or test harness fails.
 
 The privileged extended script additionally uses private mount namespaces for
 read-only controller refusal/fallback, drops privileges for denied-delegation
-refusal, and checks real intermediate CPU/memory ceilings. The unprivileged lane
+refusal, and checks real intermediate CPU/memory ceilings. Its shared-ceiling case
+runs nested Takt processes beside an unprivileged sibling holding 16 MiB; both
+runners must observe the same 0.5-core/96-MiB ancestor and sibling consumption.
+It records each runner's budget without claiming global reservation coordination.
+The unprivileged lane
 verifies reported swap capability against available controller files. A separate transient systemd unit
 tests cleanup after the Takt supervisor receives SIGKILL. These cases run only in
 the disposable hosted VM. An absent swap-controller branch is conditional on

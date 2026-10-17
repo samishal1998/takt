@@ -94,7 +94,9 @@ empty service-ancestor sets.
 Logs use a 1 MiB renderer queue and grouped storage of at most 64 MiB per task.
 Overflow is reported while pipes continue draining and readiness continues matching.
 Lifecycle records are retained independently of disposable logs. Grouped spool files
-are private temporary files. Final output drainage waits at most one second after
+are private temporary files. If a spool write fails, retained bytes still count
+toward the shared task cap; that stream warns once and truncates subsequent bytes
+while child pipes continue draining. Final output drainage waits at most one second after
 workload cleanup. Broken or undeliverable output fails the invocation.
 
 Events use schema version 1, run ID, increasing sequence, monotonic elapsed milliseconds,

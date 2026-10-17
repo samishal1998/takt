@@ -30,7 +30,7 @@ extracted="$stage/extracted/$name/takt"
 "$extracted" doctor --output json > "dist/$target-doctor.ndjson"
 export TAKT_TEST_BINARY="$extracted"
 export TAKT_TEST_FIXTURE="$PWD/target/$target/debug/takt-test-fixture"
-cargo test --locked --target "$target" --test integration --test process_lifecycle -- --test-threads=1
+cargo test --locked --target "$target" --test integration --test process_lifecycle --test probes_output -- --test-threads=1
 python3 scripts/measure-artifact.py "$target" "$extracted" "dist/$name.tar.gz"
 cargo build --locked --release --target "$target" -p takt-test-fixture
 python3 scripts/measure-performance.py "$extracted" \

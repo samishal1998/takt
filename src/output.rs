@@ -242,16 +242,68 @@ impl Drop for Output {
 
 struct Spool {
     file: File,
-    bytes: u64,
-    truncated: u64,
+    state: SpoolState,
     path: PathBuf,
 }
+
+#[derive(Default)]
+struct SpoolState {
+    bytes: u64,
+    truncated: u64,
+    failed: bool,
+}
+
+impl SpoolState {
+    /// Account for every successful write, including a prefix before an error.
+    /// Returning an error once lets the caller warn without retrying a failed spool.
+    fn append(&mut self, writer: &mut impl Write, data: &[u8], available: u64) -> io::Result<()> {
+        if self.failed {
+            self.truncated = self.truncated.saturating_add(data.len() as u64);
+            return Ok(());
+        }
+        let keep = data
+            .len()
+            .min(usize::try_from(available).unwrap_or(usize::MAX));
+        let mut written = 0;
+        while written < keep {
+            let error = match writer.write(&data[written..keep]) {
+                Ok(0) => io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "grouped spool stopped accepting bytes",
+                ),
+                Ok(count) => {
+                    written += count;
+                    self.bytes += count as u64;
+                    continue;
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                Err(error) => error,
+            };
+            self.failed = true;
+            self.truncated = self.truncated.saturating_add((data.len() - written) as u64);
+            return Err(error);
+        }
+        self.truncated = self.truncated.saturating_add((data.len() - written) as u64);
+        Ok(())
+    }
+}
 fn render(
+    shared: Arc<Shared>,
+    mode: Mode,
+    stdout: File,
+    stderr: File,
+    dir: PathBuf,
+) -> io::Result<()> {
+    render_with_limit(shared, mode, stdout, stderr, dir, SPOOL_LIMIT)
+}
+
+fn render_with_limit(
     shared: Arc<Shared>,
     mode: Mode,
     mut stdout: File,
     mut stderr: File,
     dir: PathBuf,
+    spool_limit: u64,
 ) -> io::Result<()> {
     let mut seq = 0u64;
     let mut spools: BTreeMap<(String, String), Spool> = BTreeMap::new();
@@ -307,8 +359,7 @@ fn render(
                                 key.clone(),
                                 Spool {
                                     file,
-                                    bytes: 0,
-                                    truncated: 0,
+                                    state: SpoolState::default(),
                                     path,
                                 },
                             );
@@ -334,21 +385,18 @@ fn render(
                 let total_for_task: u64 = spools
                     .iter()
                     .filter(|((id, _), _)| id == task)
-                    .map(|(_, s)| s.bytes)
+                    .map(|(_, s)| s.state.bytes)
                     .sum();
                 let spool = spools.get_mut(&key).expect("spool inserted");
-                let keep = bytes
-                    .len()
-                    .min(SPOOL_LIMIT.saturating_sub(total_for_task) as usize);
-                if let Err(e) = spool.file.write_all(&bytes[..keep]) {
+                if let Err(e) = spool.state.append(
+                    &mut spool.file,
+                    &bytes,
+                    spool_limit.saturating_sub(total_for_task),
+                ) {
                     writeln!(
                         stderr,
                         "[takt] grouped spool failed: {e}; remaining bytes truncated"
                     )?;
-                    spool.truncated += bytes.len() as u64;
-                } else {
-                    spool.bytes += keep as u64;
-                    spool.truncated += (bytes.len() - keep) as u64;
                 }
             } else {
                 write_log(
@@ -473,11 +521,150 @@ fn flush_task(
                 }
                 out.write_all(&buf[..n])?;
             }
-            if spool.truncated > 0 {
-                writeln!(out, "\n[takt: {} bytes truncated]", spool.truncated)?;
+            if spool.state.truncated > 0 {
+                writeln!(out, "\n[takt: {} bytes truncated]", spool.state.truncated)?;
             }
             let _ = std::fs::remove_file(spool.path);
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Seek, SeekFrom};
+
+    struct PartialDisk {
+        retained: Vec<u8>,
+        fail_after: Option<usize>,
+        calls: usize,
+    }
+
+    impl Write for PartialDisk {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.calls += 1;
+            let count = if let Some(limit) = self.fail_after {
+                if self.retained.len() >= limit {
+                    return Err(io::Error::from_raw_os_error(libc::ENOSPC));
+                }
+                bytes.len().min(limit - self.retained.len())
+            } else {
+                bytes.len()
+            };
+            self.retained.extend_from_slice(&bytes[..count]);
+            Ok(count)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn partial_spool_failure_counts_retained_bytes_and_never_retries() {
+        let mut disk = PartialDisk {
+            retained: Vec::new(),
+            fail_after: Some(3),
+            calls: 0,
+        };
+        let mut spool = SpoolState::default();
+        let error = spool.append(&mut disk, b"abcdefgh", 6).unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(libc::ENOSPC));
+        assert_eq!(spool.bytes, 3);
+        assert_eq!(spool.truncated, 5);
+        assert!(spool.failed);
+        assert_eq!(disk.retained, b"abc");
+
+        // A recovering disk must not receive retries, exceed the shared task
+        // limit, or cause another warning after this spool has failed.
+        disk.fail_after = None;
+        let calls_at_failure = disk.calls;
+        assert!(spool.append(&mut disk, b"ijkl", 3).is_ok());
+        assert!(spool.append(&mut disk, b"mn", 3).is_ok());
+        assert_eq!(disk.calls, calls_at_failure);
+        assert_eq!(spool.bytes, 3);
+        assert_eq!(spool.truncated, 11);
+        assert_eq!(disk.retained, b"abc");
+
+        let mut other_stream = SpoolState::default();
+        let mut other_disk = Vec::new();
+        other_stream
+            .append(&mut other_disk, b"12345", 6 - spool.bytes)
+            .unwrap();
+        assert_eq!(spool.bytes + other_stream.bytes, 6);
+        assert_eq!(other_disk, b"123");
+        assert_eq!(other_stream.truncated, 2);
+    }
+
+    #[test]
+    fn zero_length_write_disables_spool_and_accounts_for_all_discarded_bytes() {
+        let mut writer = io::Cursor::new([0u8; 2]);
+        let mut spool = SpoolState::default();
+        let error = spool.append(&mut writer, b"abcdef", 6).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::WriteZero);
+        assert_eq!(spool.bytes, 2);
+        assert_eq!(spool.truncated, 4);
+        assert!(spool.append(&mut writer, b"gh", 4).is_ok());
+        assert_eq!(spool.truncated, 6);
+        assert_eq!(writer.into_inner(), *b"ab");
+    }
+
+    #[test]
+    fn grouped_render_shares_one_task_cap_across_both_streams() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut stdout = tempfile::tempfile().unwrap();
+        let mut stderr = tempfile::tempfile().unwrap();
+        let log = |task: &str, stream: &str, data: &str| {
+            json!({"event":"log", "task_id":task, "stream":stream,
+                   "encoding":"utf8", "data":data})
+        };
+        let events = [
+            log("alpha", "stdout", "abcde"),
+            log("alpha", "stderr", "WXYZ"),
+            log("alpha", "stdout", "FGHI"),
+            log("alpha", "stderr", "JK"),
+            log("beta", "stdout", "123456"),
+            json!({"event":"task_finished", "task_id":"alpha"}),
+            json!({"event":"task_finished", "task_id":"beta"}),
+        ];
+        let shared = Arc::new(Shared {
+            queue: Mutex::new(Queue {
+                items: events
+                    .into_iter()
+                    .map(|event| Message {
+                        event,
+                        cost: 0,
+                        control_cost: 0,
+                    })
+                    .collect(),
+                log_bytes: 0,
+                control_bytes: 0,
+                closed: true,
+            }),
+            wake: Condvar::new(),
+            failed: AtomicBool::new(false),
+        });
+        render_with_limit(
+            shared,
+            Mode::Grouped,
+            stdout.try_clone().unwrap(),
+            stderr.try_clone().unwrap(),
+            directory.path().into(),
+            10,
+        )
+        .unwrap();
+        stdout.seek(SeekFrom::Start(0)).unwrap();
+        stderr.seek(SeekFrom::Start(0)).unwrap();
+        let mut out = String::new();
+        let mut err = String::new();
+        stdout.read_to_string(&mut out).unwrap();
+        stderr.read_to_string(&mut err).unwrap();
+        assert!(out.contains("abcdeF\n[takt: 3 bytes truncated]"), "{out}");
+        assert!(err.contains("WXYZ\n[takt: 2 bytes truncated]"), "{err}");
+        assert!(out.contains("--- beta (stdout) ---\n123456"), "{out}");
+        assert_eq!(out.matches("bytes truncated").count(), 1);
+        assert_eq!(err.matches("bytes truncated").count(), 1);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    }
 }

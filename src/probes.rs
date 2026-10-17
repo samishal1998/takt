@@ -601,6 +601,85 @@ fn evaluate_http(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+
+    fn stalled_resolver(deadline: Instant) -> Resolver {
+        let child = Command::new(takt_test_fixture::executable())
+            .args(["sleep", "10000"])
+            .env_clear()
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        RESOLVERS.fetch_add(1, Ordering::AcqRel);
+        let resolver = Resolver {
+            child: Some(child),
+            bytes: Vec::new(),
+            deadline,
+            killed: false,
+        };
+        let fd = resolver
+            .child
+            .as_ref()
+            .unwrap()
+            .stdout
+            .as_ref()
+            .unwrap()
+            .as_raw_fd();
+        // SAFETY: both fcntl operations address the live, owned child-output pipe.
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+        assert!(flags >= 0);
+        // SAFETY: O_NONBLOCK changes only this owned pipe's descriptor flags.
+        let result = unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) };
+        assert_eq!(result, 0);
+        resolver
+    }
+
+    #[test]
+    fn stalled_resolvers_have_bounded_polls_slots_deadlines_and_cleanup() {
+        assert_eq!(RESOLVERS.load(Ordering::Acquire), 0);
+        let started = Instant::now();
+        let mut first = stalled_resolver(started + Duration::from_secs(5));
+        let second = stalled_resolver(started + Duration::from_secs(5));
+        assert_eq!(RESOLVERS.load(Ordering::Acquire), 2);
+        assert!(
+            Resolver::start("localhost", 1, first.deadline)
+                .unwrap()
+                .is_none()
+        );
+        for _ in 0..100 {
+            assert!(first.poll().unwrap().is_none());
+        }
+        assert!(started.elapsed() < Duration::from_secs(1));
+
+        // An expired attempt must kill its resolver even when lookup never replies.
+        first.deadline = Instant::now();
+        assert_eq!(
+            first.poll().unwrap_err(),
+            "DNS resolution deadline exceeded"
+        );
+        assert!(first.killed);
+        drop(first);
+        // Cancellation uses the same nonblocking retirement path without waiting
+        // for an attempt deadline. Slots remain held until children are reaped.
+        drop(second);
+        assert_eq!(
+            RESOLVERS.load(Ordering::Acquire),
+            RETIRED_RESOLVERS.lock().unwrap().len()
+        );
+        let cleanup_deadline = Instant::now() + Duration::from_secs(2);
+        while RESOLVERS.load(Ordering::Acquire) != 0 {
+            reap_resolvers();
+            assert!(
+                Instant::now() < cleanup_deadline,
+                "resolver cleanup deadline"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(RETIRED_RESOLVERS.lock().unwrap().is_empty());
+    }
+
     #[test]
     fn literal_crosses_chunks_and_handles_binary() {
         let mut m = Matcher::new(b"ready");
