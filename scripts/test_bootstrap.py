@@ -207,7 +207,7 @@ class BootstrapTests(unittest.TestCase):
     def test_unrelated_executable_named_takt_is_skipped(self):
         executable(self.tools / "takt", "#!/bin/sh\nprintf 'some other command\\n'\n")
         result = self.successful(self.command(env={"TAKT_USE_SYSTEM": "1"}))
-        self.assertEqual(json.loads(result.stdout)["source"], str(self.cached()))
+        self.assertEqual(json.loads(result.stdout)["source"], str(self.cached().resolve()))
         self.assertEqual(len(self.requests()), 1)
 
     def test_search_continues_past_unrelated_takt(self):
@@ -222,7 +222,7 @@ class BootstrapTests(unittest.TestCase):
     def test_force_cache_ignores_installed_binary(self):
         self.install_system_binary()
         result = self.successful(self.command())
-        self.assertEqual(json.loads(result.stdout)["source"], str(self.cached()))
+        self.assertEqual(json.loads(result.stdout)["source"], str(self.cached().resolve()))
         self.assertEqual(len(self.requests()), 1)
 
     def test_cold_cache_then_offline_reuse(self):
@@ -398,11 +398,11 @@ class BootstrapTests(unittest.TestCase):
                                                ("Darwin", "aarch64", TARGETS[2])):
             with self.subTest(system=system, architecture=architecture):
                 result = self.successful(self.command(env={"TAKT_TEST_OS": system, "TAKT_TEST_ARCH": architecture}))
-                self.assertEqual(json.loads(result.stdout)["source"], str(self.cached(target)))
+                self.assertEqual(json.loads(result.stdout)["source"], str(self.cached(target).resolve()))
 
     def test_gnu_target_can_be_selected_on_linux(self):
         result = self.successful(self.command(env={"TAKT_TARGET": TARGETS[1]}))
-        self.assertEqual(json.loads(result.stdout)["source"], str(self.cached(TARGETS[1])))
+        self.assertEqual(json.loads(result.stdout)["source"], str(self.cached(TARGETS[1]).resolve()))
 
     def test_unsupported_platforms_and_incompatible_overrides_fail_before_network(self):
         cases = ({"TAKT_TEST_OS": "Windows_NT"}, {"TAKT_TEST_ARCH": "aarch64"},
