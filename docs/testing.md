@@ -79,6 +79,11 @@ peer alive to succeed; aggregate OOM must retain its distinct failure reason. Th
 release evidence must include controller-counter deltas, successful unaffected
 work where applicable, and absence of owned cgroup leaks. The outer systemd unit
 remains the cleanup boundary if the supervisor or test harness fails.
+OOM evidence includes before/after deltas from the outer group's persistent
+hierarchical `memory.events`, so removing a short-lived child cannot erase the
+sample. Both `oom` and `oom_kill` must increase, while outer `memory.events.local`
+must show no local OOM. These scopes follow the
+[kernel's memory controller documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files).
 
 The privileged extended script additionally uses private mount namespaces for
 read-only controller refusal/fallback, drops privileges for denied-delegation

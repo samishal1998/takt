@@ -124,7 +124,7 @@ try:
         budget = next(event["budget"] for event in runner_events if event.get("event") == "run_started")
         assert budget["cpu_millicores"] <= 500, budget
         assert budget["memory_bytes"] <= shared_limit - 16 * 1024 * 1024, budget
-        source_prefix = f"{shared}/memory.max headroom="
+        source_prefix = f"{shared} headroom="
         source = next(value for value in budget["discovered"]["provenance"] if value.startswith(source_prefix))
         observed_headroom = int(source.removeprefix(source_prefix).removesuffix(" bytes"))
         assert observed_headroom <= shared_limit - 16 * 1024 * 1024, budget

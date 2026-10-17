@@ -117,7 +117,7 @@ fn bound_tcp_without_listening() -> (OwnedFd, u16) {
 }
 
 #[test]
-fn refused_tcp_endpoint_retries_until_bounded_readiness_deadline() {
+fn unavailable_tcp_endpoint_retries_until_bounded_readiness_deadline() {
     // Retain a bound, non-listening socket throughout: no guessed free port race.
     let (_socket, port) = bound_tcp_without_listening();
     let spec: Probe = serde_json::from_value(json!({
@@ -136,7 +136,12 @@ fn refused_tcp_endpoint_retries_until_bounded_readiness_deadline() {
         assert!(started.elapsed() < Duration::from_secs(2));
     };
     assert!(error.contains("readiness deadline exceeded"));
-    assert!(error.to_ascii_lowercase().contains("refused"), "{error}");
+    // Linux refuses this endpoint; Darwin can leave the attempt pending instead.
+    assert!(
+        error.to_ascii_lowercase().contains("refused")
+            || error.contains("network attempt timed out"),
+        "{error}"
+    );
     assert!(!readiness.ready);
 }
 
@@ -155,13 +160,17 @@ fn tcp_retry_becomes_ready_when_the_owned_endpoint_starts_listening() {
         assert!(Instant::now() < until);
         std::thread::sleep(Duration::from_millis(1));
     }
+    // Both kernel responses prove the first attempt failed before listen starts.
     assert!(
         readiness
             .last_error
             .to_ascii_lowercase()
             .contains("refused")
+            || readiness.last_error == "network attempt timed out",
+        "{}",
+        readiness.last_error
     );
-    // SAFETY: start listening on the same bound socket retained across refusal.
+    // SAFETY: start listening on the same bound socket retained across failure.
     let result = unsafe { libc::listen(socket.as_raw_fd(), 1) };
     assert_eq!(result, 0);
     while !readiness.tick().unwrap() {

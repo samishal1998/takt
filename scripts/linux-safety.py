@@ -45,6 +45,8 @@ def execute(name, tasks, memory="256MiB", expected=0, prefix=(), enforcement="re
         config_path = pathlib.Path(directory) / "takt.json"
         config_path.write_text(json.dumps(config))
         os.chmod(directory, 0o755)
+        boundary_events_before = counters(boundary / "memory.events")
+        boundary_local_before = counters(boundary / "memory.events.local")
         start = time.monotonic()
         process = subprocess.Popen([*prefix, str(binary), "run", "--output", "json", "--file", str(config_path), *tasks], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         selector = selectors.DefaultSelector()
@@ -91,10 +93,19 @@ def execute(name, tasks, memory="256MiB", expected=0, prefix=(), enforcement="re
                 process.wait(timeout=1)
             selector.close()
         events = [json.loads(line) for line in captured["stdout"].splitlines()]
-        report = {"name": name, "exit_code": code, "elapsed_seconds": time.monotonic() - start, "max_task_members": max_members, "controllers": snapshots, "stderr": captured["stderr"].decode(errors="replace")}
+        boundary_events_after = counters(boundary / "memory.events")
+        boundary_local_after = counters(boundary / "memory.events.local")
+        # The delegated outer group outlives every owned run. Its hierarchical
+        # counters retain OOM events even when a short-lived child is removed
+        # before polling samples its final counters; local counters distinguish
+        # an unintended breach of the independent outer boundary.
+        boundary_deltas = {key: int(value) - int(boundary_events_before.get(key, 0)) for key, value in boundary_events_after.items()}
+        boundary_local_deltas = {key: int(value) - int(boundary_local_before.get(key, 0)) for key, value in boundary_local_after.items()}
+        report = {"name": name, "exit_code": code, "elapsed_seconds": time.monotonic() - start, "max_task_members": max_members, "controllers": snapshots, "outer_memory_events_before": boundary_events_before, "outer_memory_events_after": boundary_events_after, "outer_memory_events_delta": boundary_deltas, "outer_memory_events_local_delta": boundary_local_deltas, "stderr": captured["stderr"].decode(errors="replace")}
         (evidence_directory / f"{name}.ndjson").write_bytes(captured["stdout"])
         (evidence_directory / f"{name}.json").write_text(json.dumps(report, indent=2) + "\n")
         assert code == expected, report
+        assert boundary_local_deltas.get("oom", 0) == 0, "independent outer memory boundary was reached"
         assert not list(search_root.glob("takt-*")), f"owned cgroups leaked after {name}"
         return events, report
 
@@ -105,14 +116,16 @@ def base_suite():
     events, report = execute("task-oom", {"allocate": task("allocate", 128, 500, memory="64MiB"), "survivor": task("sleep", 500)}, expected=1)
     oom = next(event for event in events if event.get("task_id") == "allocate" and event.get("event") == "task_finished")
     assert oom["reason"] == "memory_limit", events
-    assert any(value.get("memory.events:oom_kill", 0) > 0 for value in report["controllers"].values()), report
+    assert report["outer_memory_events_delta"].get("oom", 0) > 0, report
+    assert report["outer_memory_events_delta"].get("oom_kill", 0) > 0, report
     survivor_started = next(event for event in events if event.get("task_id") == "survivor" and event.get("event") == "task_started")
     survivor_finished = next(event for event in events if event.get("task_id") == "survivor" and event.get("event") == "task_finished")
     assert survivor_finished["exit_code"] == 0, events
     assert survivor_started["sequence"] < oom["sequence"] < survivor_finished["sequence"], events
 
     events, report = execute("aggregate-oom", {"a": task("allocate", 48, 700), "b": task("allocate", 48, 700)}, memory="64MiB", expected=1)
-    assert any(value.get("memory.events:oom_kill", 0) > 0 for value in report["controllers"].values()), report
+    assert report["outer_memory_events_delta"].get("oom", 0) > 0, report
+    assert report["outer_memory_events_delta"].get("oom_kill", 0) > 0, report
     finished = [event for event in events if event.get("event") == "task_finished"]
     assert any(event["reason"] == "aggregate_memory_limit" for event in finished), events
     assert not any(event["reason"] == "memory_limit" for event in finished), events
