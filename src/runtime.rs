@@ -23,6 +23,7 @@ use std::{
 
 struct Running {
     child: ManagedChild,
+    launching: bool,
     started: Instant,
     readiness: Option<Readiness>,
     outcome: Option<Outcome>,
@@ -226,9 +227,35 @@ pub fn run(
         for (id, task) in &mut running {
             task.aggregate_oom_seen |= new_aggregate_oom;
             let spec = &config.tasks[id];
+            if task.launching && task.outcome.is_none() {
+                if config.failure == FailurePolicy::FailFast && scheduler.any_failed() {
+                    stop_for_policy(task, Reason::FailFast, signal_code);
+                } else {
+                    match task.child.poll_launch() {
+                        Ok(true) => {
+                            task.launching = false;
+                            task.started = Instant::now();
+                            task.readiness = spec.readiness.clone().map(Readiness::new);
+                            scheduler.started(id)?;
+                            output.emit("task_started", Some(id), json!({"pid":task.child.pid}));
+                        }
+                        Ok(false) => {}
+                        Err(error) => {
+                            let mut outcome = Outcome::failed(Reason::SpawnFailure);
+                            outcome.detail = Some(error.to_string());
+                            begin_stop(task, outcome, libc::SIGKILL);
+                        }
+                    }
+                }
+            }
             let mut close_stdout = false;
             let mut close_stderr = false;
             for stream in ["stdout", "stderr"] {
+                // Exec closes the control socket before target output is possible.
+                // Initialize readiness first so immediate stdio bytes are retained.
+                if task.launching && task.outcome.is_none() {
+                    break;
+                }
                 let mut buf = [0u8; 8192];
                 let mut read_total = 0;
                 loop {
@@ -284,7 +311,12 @@ pub fn run(
                     usage.remove(id);
                 }
             }
-            match task.child.poll_exit() {
+            let exit = if task.launching && task.outcome.is_none() {
+                Ok(None)
+            } else {
+                task.child.poll_exit()
+            };
+            match exit {
                 Ok(Some(exit)) => {
                     if task.outcome.is_none() {
                         let mut outcome = if exit.signal == Some(libc::SIGKILL)
@@ -316,7 +348,7 @@ pub fn run(
                 }
                 Ok(None) => {}
             }
-            if task.outcome.is_none() {
+            if task.outcome.is_none() && !task.launching {
                 if spec
                     .timeout
                     .and_then(Timeout::duration)
@@ -493,12 +525,13 @@ pub fn run(
                         json!({"request":scheduler.requests[&id]}),
                     );
                     let spec = launch_spec(&id, &config.tasks[&id], direct.get(&id), &scheduler)?;
-                    match ManagedChild::spawn(&spec, protection.task(&id)) {
+                    match ManagedChild::start(&spec, protection.task(&id)) {
                         Ok(child) => {
                             let mut capture_error = None;
                             for fd in [
                                 child.stdout.as_ref().map(AsRawFd::as_raw_fd),
                                 child.stderr.as_ref().map(AsRawFd::as_raw_fd),
+                                child.launch_fd(),
                             ]
                             .into_iter()
                             .flatten()
@@ -513,13 +546,11 @@ pub fn run(
                                 }
                                 next_token += 1;
                             }
-                            output.emit("task_started", Some(&id), json!({"pid":child.pid}));
-                            scheduler.started(&id)?;
-                            let readiness = config.tasks[&id].readiness.clone().map(Readiness::new);
                             let mut task = Running {
                                 child,
+                                launching: true,
                                 started: Instant::now(),
-                                readiness,
+                                readiness: None,
                                 outcome: None,
                                 stopping: None,
                                 killed: false,
@@ -578,10 +609,9 @@ pub fn run(
         }
         let timeout = if capture_pending {
             Duration::ZERO
-        } else if running
-            .values()
-            .any(|t| t.readiness.as_ref().is_some_and(|r| !r.ready))
-        {
+        } else if running.values().any(|t| {
+            (t.launching && t.outcome.is_none()) || t.readiness.as_ref().is_some_and(|r| !r.ready)
+        }) {
             Duration::from_millis(20)
         } else {
             Duration::from_millis(100)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bounded real-controller tests, called only by linux-safety.sh in ephemeral CI."""
 import json
+import errno
 import os
 import pathlib
 import selectors
@@ -22,11 +23,19 @@ def task(*args, memory="128MiB", cpu=1):
     return {"kind": "task", "command": [str(fixture), *map(str, args)], "resources": {"cpu": 0.01, "memory": "1MiB"}, "limits": {"cpu": cpu, "memory": memory}, "stop_grace": "50ms"}
 
 
-def counters(path):
+def controller_text(path):
     try:
-        return dict(line.split() for line in path.read_text().splitlines())
-    except FileNotFoundError:
-        return {}
+        return path.read_text()
+    except OSError as error:
+        # A cgroup can disappear between directory enumeration, open, and read.
+        # Linux reports ENODEV for an already-open counter after rmdir.
+        if error.errno in (errno.ENOENT, errno.ENODEV):
+            return None
+        raise
+
+
+def counters(path):
+    return dict(line.split() for line in (controller_text(path) or "").splitlines())
 
 
 def execute(name, tasks, memory="256MiB", expected=0, prefix=(), enforcement="required", search_root=None, cancel_on_log=False):
@@ -69,15 +78,12 @@ def execute(name, tasks, memory="256MiB", expected=0, prefix=(), enforcement="re
                                 key = f"{filename}:{field}"
                                 snapshot[key] = max(snapshot.get(key, 0), int(value))
                         for filename in ["cpu.max", "memory.max", "memory.swap.max"]:
-                            try:
-                                snapshot[filename] = (directory / filename).read_text().strip()
-                            except FileNotFoundError:
-                                pass
-                        try:
-                            count = len((directory / "cgroup.procs").read_text().splitlines())
-                            max_members = max(max_members, count)
-                        except FileNotFoundError:
-                            pass
+                            value = controller_text(directory / filename)
+                            if value is not None:
+                                snapshot[filename] = value.strip()
+                        members = controller_text(directory / "cgroup.procs")
+                        if members is not None:
+                            max_members = max(max_members, len(members.splitlines()))
             code = process.wait(timeout=1)
         finally:
             if process.poll() is None:
@@ -96,13 +102,20 @@ def execute(name, tasks, memory="256MiB", expected=0, prefix=(), enforcement="re
 def base_suite():
     assert os.geteuid() != 0, "ordinary containment tests must run as an unprivileged delegated user"
     (evidence_directory / "workload-identity.json").write_text(json.dumps({"uid": os.getuid(), "gid": os.getgid()}) + "\n")
-    events, report = execute("task-oom", {"allocate": task("allocate", 128, 500, memory="64MiB"), "survivor": task("exit", 0)}, expected=1)
-    assert any("memory" in str(event.get("reason", "")) or "oom" in str(event.get("reason", "")) for event in events), events
+    events, report = execute("task-oom", {"allocate": task("allocate", 128, 500, memory="64MiB"), "survivor": task("sleep", 500)}, expected=1)
+    oom = next(event for event in events if event.get("task_id") == "allocate" and event.get("event") == "task_finished")
+    assert oom["reason"] == "memory_limit", events
     assert any(value.get("memory.events:oom_kill", 0) > 0 for value in report["controllers"].values()), report
-    assert any(event.get("task_id") == "survivor" and event.get("event") == "task_finished" and event.get("exit_code") == 0 for event in events), events
+    survivor_started = next(event for event in events if event.get("task_id") == "survivor" and event.get("event") == "task_started")
+    survivor_finished = next(event for event in events if event.get("task_id") == "survivor" and event.get("event") == "task_finished")
+    assert survivor_finished["exit_code"] == 0, events
+    assert survivor_started["sequence"] < oom["sequence"] < survivor_finished["sequence"], events
 
     events, report = execute("aggregate-oom", {"a": task("allocate", 48, 700), "b": task("allocate", 48, 700)}, memory="64MiB", expected=1)
     assert any(value.get("memory.events:oom_kill", 0) > 0 for value in report["controllers"].values()), report
+    finished = [event for event in events if event.get("event") == "task_finished"]
+    assert any(event["reason"] == "aggregate_memory_limit" for event in finished), events
+    assert not any(event["reason"] == "memory_limit" for event in finished), events
 
     events, report = execute("cpu-quota", {"burn": task("burn", 1500, cpu=0.1)})
     quota = [value for value in report["controllers"].values() if value.get("cpu.max", "").startswith("10000 ")]
@@ -114,10 +127,14 @@ def base_suite():
         assert report["max_task_members"] >= 3, report
 
     events, _ = execute("exit-137", {"ordinary": task("exit", 137)}, expected=1)
-    assert not any("oom" in str(event.get("reason", "")) for event in events), events
+    finished = next(event for event in events if event.get("task_id") == "ordinary" and event.get("event") == "task_finished")
+    assert finished["reason"] == "normal_exit" and finished["exit_code"] == 137, events
     for repetition in range(3):
         execute(f"cleanup-{repetition}", {"short": task("exit", 0)})
-    execute("cancel-cleanup", {"tree": task("tree", 2, 1000, "ignore")}, expected=143, cancel_on_log=True)
+        timed = {**task("sleep", 3000), "timeout": "100ms"}
+        events, _ = execute(f"timeout-cleanup-{repetition}", {"timed": timed}, expected=1)
+        assert any(event.get("event") == "task_finished" and event.get("reason") == "execution_timeout" for event in events), events
+        execute(f"cancel-cleanup-{repetition}", {"tree": task("tree", 2, 1000, "ignore")}, expected=143, cancel_on_log=True)
 
     events, report = execute("swap-capability", {"a": task("sleep", 100)})
     capabilities = next(event["capabilities"] for event in events if event.get("event") == "capabilities")

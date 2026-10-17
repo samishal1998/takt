@@ -668,17 +668,37 @@ fn grouped_directory_failure_falls_back_without_losing_child_output() {
 }
 
 #[test]
-fn fail_fast_spawn_failure_cancels_other_launches_from_the_same_batch() {
+fn fail_fast_spawn_failure_cancels_queued_launches() {
     let mut config = configuration(json!({
         "a_missing":{"kind":"task","command":["/definitely-missing-takt-fixture"]},
         "b_independent":fixture(&["args","SHOULD_NOT_RUN"]),
         "c_independent":fixture(&["args","SHOULD_NOT_RUN"])
     }));
     config["failure"] = json!("fail-fast");
+    config["scheduling"]["jobs"] = json!(1);
     let result = configured(&config, &["a_missing", "b_independent", "c_independent"]);
     result.code(1);
     assert!(!result.has_event("task_started", "b_independent"));
     assert!(!result.has_event("task_started", "c_independent"));
+}
+
+#[test]
+fn fail_fast_spawn_failure_cancels_concurrent_launches() {
+    let mut config = configuration(json!({
+        "a_missing":{"kind":"task","command":["/definitely-missing-takt-fixture"]},
+        "b_independent":fixture(&["sleep","2000"]),
+        "c_independent":fixture(&["sleep","2000"])
+    }));
+    config["failure"] = json!("fail-fast");
+    let result = configured(&config, &["a_missing", "b_independent", "c_independent"]);
+    result.code(1);
+    let events = result.events();
+    let outcomes = &events.last().unwrap()["outcomes"];
+    assert_eq!(outcomes["a_missing"]["reason"], "spawn_failure");
+    for id in ["b_independent", "c_independent"] {
+        assert_eq!(outcomes[id]["kind"], "cancelled");
+        assert_eq!(outcomes[id]["reason"], "fail_fast");
+    }
 }
 
 #[test]

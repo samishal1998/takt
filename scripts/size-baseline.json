@@ -1,1 +1,5 @@
-{}
+{
+  "x86_64-unknown-linux-gnu": 2159032,
+  "x86_64-unknown-linux-musl": 2282336,
+  "aarch64-apple-darwin": 1604352
+}

@@ -9,11 +9,142 @@ use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const HELPER_FLAG: &str = "--__takt-launch";
 const MAGIC: &[u8; 8] = b"TAKT\0\x01\r\n";
 const MAX_LAUNCH_BYTES: usize = 1024 * 1024;
+const LAUNCH_TIMEOUT: Duration = Duration::from_secs(5);
+const LAUNCH_IO_BUDGET: usize = 64 * 1024;
+
+enum LaunchPhase {
+    Hello(usize),
+    Payload(usize),
+    Exec(usize),
+    ExecResult,
+}
+
+struct LaunchHandshake {
+    control: UnixStream,
+    phase: LaunchPhase,
+    payload: Vec<u8>,
+    handshake: [u8; 8],
+    response: Vec<u8>,
+    deadline: Instant,
+}
+
+impl LaunchHandshake {
+    fn new(control: UnixStream, encoded: Vec<u8>, started: Instant) -> Self {
+        let mut payload = Vec::with_capacity(encoded.len() + 4);
+        payload.extend_from_slice(&(encoded.len() as u32).to_be_bytes());
+        payload.extend_from_slice(&encoded);
+        Self {
+            control,
+            phase: LaunchPhase::Hello(0),
+            payload,
+            handshake: [0; 8],
+            response: Vec::new(),
+            deadline: started + LAUNCH_TIMEOUT,
+        }
+    }
+
+    fn poll_at(&mut self, pid: u32, group: Option<&TaskCgroup>, now: Instant) -> io::Result<bool> {
+        if now >= self.deadline {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "launcher exceeded its five-second deadline",
+            ));
+        }
+        let mut remaining = LAUNCH_IO_BUDGET;
+        // Bound both bytes and syscalls: even a peer making tiny progress cannot
+        // monopolize the supervisor's iteration or reset the absolute deadline.
+        for _ in 0..16 {
+            if remaining == 0 {
+                break;
+            }
+            let operation = match self.phase {
+                LaunchPhase::Hello(offset) => {
+                    let end = (offset + remaining).min(MAGIC.len());
+                    self.control.read(&mut self.handshake[offset..end])
+                }
+                LaunchPhase::Payload(offset) => {
+                    let end = (offset + remaining).min(self.payload.len());
+                    self.control.write(&self.payload[offset..end])
+                }
+                LaunchPhase::Exec(offset) => {
+                    let end = (offset + remaining).min(4);
+                    self.control.read(&mut self.handshake[offset..end])
+                }
+                LaunchPhase::ExecResult => {
+                    let mut bytes = [0u8; 4097];
+                    match self.control.read(&mut bytes[..remaining.min(4097)]) {
+                        Ok(0) if self.response.is_empty() => return Ok(true),
+                        Ok(0) => {
+                            return Err(io::Error::other(format!(
+                                "launch failed: {}",
+                                String::from_utf8_lossy(&self.response)
+                            )));
+                        }
+                        Ok(count) => {
+                            if self.response.len() + count > 4096 {
+                                return Err(io::Error::other(
+                                    "launcher error response exceeds limit",
+                                ));
+                            }
+                            self.response.extend_from_slice(&bytes[..count]);
+                            Ok(count)
+                        }
+                        Err(error) => Err(error),
+                    }
+                }
+            };
+            let count = match operation {
+                Ok(0) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "launcher ended before completing its handshake",
+                    ));
+                }
+                Ok(count) => count,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    return Ok(false);
+                }
+                Err(error) => return Err(error),
+            };
+            remaining -= count;
+            self.phase = match self.phase {
+                LaunchPhase::Hello(offset) if offset + count == MAGIC.len() => {
+                    if &self.handshake != MAGIC {
+                        return Err(io::Error::other("invalid launcher handshake"));
+                    }
+                    if let Some(group) = group {
+                        group.attach(pid)?;
+                    }
+                    LaunchPhase::Payload(0)
+                }
+                LaunchPhase::Hello(offset) => LaunchPhase::Hello(offset + count),
+                LaunchPhase::Payload(offset) if offset + count == self.payload.len() => {
+                    LaunchPhase::Exec(0)
+                }
+                LaunchPhase::Payload(offset) => LaunchPhase::Payload(offset + count),
+                LaunchPhase::Exec(offset) if offset + count == 4 => {
+                    if &self.handshake[..4] != b"EXEC" {
+                        return Err(io::Error::other("launcher rejected execution payload"));
+                    }
+                    LaunchPhase::ExecResult
+                }
+                LaunchPhase::Exec(offset) => LaunchPhase::Exec(offset + count),
+                LaunchPhase::ExecResult => LaunchPhase::ExecResult,
+            };
+        }
+        Ok(false)
+    }
+}
 
 #[derive(Debug)]
 struct LaunchCleanupIncomplete(String);
@@ -102,10 +233,15 @@ pub struct ManagedChild {
     group: Option<TaskCgroup>,
     exit: Option<ProcessExit>,
     reaped: bool,
+    launch: Option<LaunchHandshake>,
+    launch_confirmed: bool,
 }
 
 impl ManagedChild {
-    pub fn spawn(spec: &LaunchSpec, group: Option<TaskCgroup>) -> io::Result<Self> {
+    /// Start the neutral helper without waiting for its private launch protocol.
+    /// Native self-exec and controller syscalls remain subject to OS I/O stalls.
+    pub fn start(spec: &LaunchSpec, group: Option<TaskCgroup>) -> io::Result<Self> {
+        let started = Instant::now();
         let wire = WireLaunch::from(spec);
         wire.validate()?;
         let encoded = serde_json::to_vec(&wire).map_err(io::Error::other)?;
@@ -115,9 +251,8 @@ impl ManagedChild {
                 "launch specification exceeds 1 MiB",
             ));
         }
-        let (mut parent_control, child_control) = UnixStream::pair()?;
-        parent_control.set_read_timeout(Some(Duration::from_secs(5)))?;
-        parent_control.set_write_timeout(Some(Duration::from_secs(5)))?;
+        let (parent_control, child_control) = UnixStream::pair()?;
+        parent_control.set_nonblocking(true)?;
         let control_fd = child_control.as_raw_fd();
         let mut command = Command::new(std::env::current_exe()?);
         command
@@ -138,65 +273,34 @@ impl ManagedChild {
                 Ok(())
             });
         }
-        let child = command.spawn()?;
+        let mut child = command.spawn()?;
         drop(child_control);
         let pid = child.id();
         let mut managed = Self {
-            child,
             pid,
             pgid: pid as i32,
-            stdout: None,
-            stderr: None,
+            stdout: child.stdout.take(),
+            stderr: child.stderr.take(),
+            child,
             group,
             exit: None,
             reaped: false,
+            launch: Some(LaunchHandshake::new(parent_control, encoded, started)),
+            launch_confirmed: false,
         };
-        let launch = (|| {
-            let mut hello = [0u8; 8];
-            parent_control.read_exact(&mut hello)?;
-            if &hello != MAGIC {
-                return Err(io::Error::other("invalid launcher handshake"));
-            }
-            if let Some(group) = &managed.group {
-                group.attach(pid)?;
-            }
-            parent_control.write_all(&(encoded.len() as u32).to_be_bytes())?;
-            parent_control.write_all(&encoded)?;
-            let mut exec_ready = [0u8; 4];
-            parent_control.read_exact(&mut exec_ready)?;
-            if &exec_ready != b"EXEC" {
-                return Err(io::Error::other("launcher rejected execution payload"));
-            }
-            // A successful exec atomically closes the CLOEXEC control socket.
-            // Exec/chdir errors are sent explicitly through this same descriptor.
-            let mut response = Vec::new();
-            (&mut parent_control)
-                .take(4097)
-                .read_to_end(&mut response)?;
-            if !response.is_empty() {
-                return Err(io::Error::other(format!(
-                    "launch failed: {}",
-                    String::from_utf8_lossy(&response[..response.len().min(4096)])
-                )));
-            }
-            if let Some(stdout) = &managed.child.stdout {
+        let capture: io::Result<()> = (|| {
+            if let Some(stdout) = &managed.stdout {
                 set_nonblocking(stdout.as_raw_fd())?;
             }
-            if let Some(stderr) = &managed.child.stderr {
+            if let Some(stderr) = &managed.stderr {
                 set_nonblocking(stderr.as_raw_fd())?;
             }
             Ok(())
         })();
-        if let Err(error) = launch {
+        if let Err(error) = capture {
             let _ = managed.signal(libc::SIGKILL);
-            // A helper stuck in kernel I/O might not immediately respond to KILL.
-            // Never turn a bounded handshake failure into an unbounded wait.
-            for _ in 0..20 {
-                if managed.child.try_wait()?.is_some() {
-                    managed.reaped = true;
-                    break;
-                }
-                std::thread::sleep(Duration::from_millis(5));
+            if managed.child.try_wait()?.is_some() {
+                managed.reaped = true;
             }
             if !managed.reaped {
                 return Err(io::Error::other(LaunchCleanupIncomplete(format!(
@@ -206,9 +310,39 @@ impl ManagedChild {
             }
             return Err(error);
         }
-        managed.stdout = managed.child.stdout.take();
-        managed.stderr = managed.child.stderr.take();
         Ok(managed)
+    }
+
+    pub fn launch_pending(&self) -> bool {
+        self.launch.is_some()
+    }
+
+    pub fn launch_fd(&self) -> Option<RawFd> {
+        self.launch
+            .as_ref()
+            .map(|launch| launch.control.as_raw_fd())
+    }
+
+    /// Advance bounded nonblocking launch I/O. Errors leave the owned process
+    /// available for the runtime's ordinary signal, observation, and cleanup path.
+    pub fn poll_launch(&mut self) -> io::Result<bool> {
+        let Some(launch) = &mut self.launch else {
+            return if self.launch_confirmed {
+                Ok(true)
+            } else {
+                Err(io::Error::other("launcher already failed"))
+            };
+        };
+        let result = launch.poll_at(self.pid, self.group.as_ref(), Instant::now());
+        match result {
+            Ok(true) => {
+                self.launch_confirmed = true;
+                self.launch = None;
+            }
+            Err(_) => self.launch = None,
+            Ok(false) => {}
+        }
+        result
     }
 
     /// Observe but do not reap the leader, keeping its process-group ID reserved.
@@ -597,6 +731,147 @@ fn process_group_snapshot(pgid: i32) -> io::Result<GroupSnapshot> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn handshake(encoded: Vec<u8>, started: Instant) -> (LaunchHandshake, UnixStream) {
+        let (parent, peer) = UnixStream::pair().unwrap();
+        parent.set_nonblocking(true).unwrap();
+        peer.set_nonblocking(true).unwrap();
+        (LaunchHandshake::new(parent, encoded, started), peer)
+    }
+
+    #[test]
+    fn stalled_launcher_poll_is_nonblocking_and_deadline_is_absolute() {
+        let started = Instant::now();
+        let (mut launch, mut peer) = handshake(vec![1, 2, 3], started);
+        for _ in 0..100 {
+            assert!(!launch.poll_at(0, None, started).unwrap());
+        }
+        assert!(started.elapsed() < Duration::from_secs(1));
+        peer.write_all(&MAGIC[..1]).unwrap();
+        assert!(
+            !launch
+                .poll_at(0, None, started + Duration::from_secs(4))
+                .unwrap()
+        );
+        assert_eq!(
+            launch
+                .poll_at(0, None, started + LAUNCH_TIMEOUT)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::TimedOut
+        );
+    }
+
+    #[test]
+    fn cancellation_before_launch_gate_retains_identity_until_cleanup() {
+        let started = Instant::now();
+        let (launch, mut peer) = handshake(vec![1, 2, 3], started);
+        // A bounded fixture stands in for the neutral helper, keeping this test
+        // independent of the executable's CLI helper dispatch.
+        let child = Command::new(takt_test_fixture::executable())
+            .args(["sleep", "1000"])
+            .env_clear()
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        let mut managed = ManagedChild {
+            child,
+            pid,
+            pgid: pid as i32,
+            stdout: None,
+            stderr: None,
+            group: None,
+            exit: None,
+            reaped: false,
+            launch: Some(launch),
+            launch_confirmed: false,
+        };
+        peer.write_all(MAGIC).unwrap();
+        managed.signal(libc::SIGKILL).unwrap();
+        assert!(!managed.reaped);
+        assert!(managed.launch_pending());
+        let mut byte = [0u8; 1];
+        assert_eq!(
+            peer.read(&mut byte).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !managed.cleanup_finished().unwrap() {
+            assert!(Instant::now() < deadline, "pending helper cleanup deadline");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(managed.reaped);
+        assert_eq!(
+            managed.poll_exit().unwrap().unwrap().signal,
+            Some(libc::SIGKILL)
+        );
+    }
+
+    #[test]
+    fn launch_sends_nothing_before_hello_and_requires_exec_eof() {
+        let started = Instant::now();
+        let (mut launch, mut peer) = handshake(vec![1, 2, 3], started);
+        peer.write_all(&MAGIC[..4]).unwrap();
+        assert!(!launch.poll_at(0, None, started).unwrap());
+        let mut bytes = [0u8; 7];
+        assert_eq!(
+            peer.read(&mut bytes).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        peer.write_all(&MAGIC[4..]).unwrap();
+        assert!(!launch.poll_at(0, None, started).unwrap());
+        peer.read_exact(&mut bytes).unwrap();
+        assert_eq!(bytes, [0, 0, 0, 3, 1, 2, 3]);
+        peer.write_all(b"EXEC").unwrap();
+        assert!(!launch.poll_at(0, None, started).unwrap());
+        drop(peer);
+        assert!(launch.poll_at(0, None, started).unwrap());
+    }
+
+    #[test]
+    fn launch_progress_has_a_per_iteration_byte_bound() {
+        let started = Instant::now();
+        let (mut launch, mut peer) = handshake(vec![0; MAX_LAUNCH_BYTES], started);
+        peer.write_all(MAGIC).unwrap();
+        assert!(!launch.poll_at(0, None, started).unwrap());
+        let mut bytes = vec![0u8; LAUNCH_IO_BUDGET + 1];
+        let mut total = 0;
+        loop {
+            match peer.read(&mut bytes) {
+                Ok(count) if count > 0 => total += count,
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
+                other => panic!("unexpected payload read: {other:?}"),
+            }
+        }
+        assert!(total > 0 && total <= LAUNCH_IO_BUDGET - MAGIC.len());
+        assert!(matches!(launch.phase, LaunchPhase::Payload(_)));
+    }
+
+    #[test]
+    fn launch_preserves_exec_error_and_rejects_invalid_handshake() {
+        let started = Instant::now();
+        let (mut launch, mut peer) = handshake(vec![1], started);
+        peer.write_all(MAGIC).unwrap();
+        assert!(!launch.poll_at(0, None, started).unwrap());
+        peer.read_exact(&mut [0u8; 5]).unwrap();
+        peer.write_all(b"EXECmissing executable").unwrap();
+        drop(peer);
+        let error = launch.poll_at(0, None, started).unwrap_err();
+        assert!(error.to_string().contains("missing executable"));
+
+        let (mut launch, mut peer) = handshake(vec![1], started);
+        peer.write_all(b"BADMAGIC").unwrap();
+        assert!(launch.poll_at(0, None, started).is_err());
+        let mut byte = [0u8; 1];
+        assert_eq!(
+            peer.read(&mut byte).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+    }
 
     #[test]
     fn wire_roundtrips_raw_argument_bytes() {

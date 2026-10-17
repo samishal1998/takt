@@ -130,3 +130,19 @@ times, medians and spreads, the executable and input hashes, commands,
 dependencies, and environment overrides. Cargo's shared cache and build lock
 are part of this real repository workload. A small timing difference on this
 shared host does not establish a speed advantage.
+
+The [repository report](evidence/linux-vps-repository.json) records the same VPS
+on 2026-10-17 using a later GNU executable, SHA-256
+`00379e69ed00fac6739df3d3705ac2aa7edbe58e9fb71d9cdd274be03143e504`.
+This checkpoint includes the process-sampling change for enforcement `off`;
+the earlier default-`auto` idle observation above remains a separate measurement.
+All eight executions, including warm-ups, completed successfully. Starting load
+averages were 4.03, 3.77, and 4.09.
+
+| Runner | Median wall time | Minimum | Maximum |
+| --- | ---: | ---: | ---: |
+| Takt, two slots | 9.825 s | 9.676 s | 10.387 s |
+| Portable shell, two slots | 9.484 s | 9.425 s | 10.654 s |
+
+The measured ranges overlap. Takt's median was about 0.34 seconds higher in
+these three samples; this observation does not support a speed advantage.

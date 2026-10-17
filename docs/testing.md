@@ -68,7 +68,9 @@ retains parent and supervisor controller values in `delegation-base.json` and
 loader or workload test. `scripts/linux-safety.py` uses an independent subprocess harness with four-second
 case deadlines and at most 2 MiB captured output per stream. It records controller
 values/counters and raw NDJSON for per-task OOM, aggregate OOM, CPU bandwidth,
-immediate and detached descendants, exit 137, and repeated cleanup. The actual
+immediate and detached descendants, ordinary exit 137, and repeated success,
+timeout, and cancellation cleanup. Per-task OOM must leave an already-running
+peer alive to succeed; aggregate OOM must retain its distinct failure reason. The actual
 release evidence must include controller-counter deltas, successful unaffected
 work where applicable, and absence of owned cgroup leaks. The outer systemd unit
 remains the cleanup boundary if the supervisor or test harness fails.

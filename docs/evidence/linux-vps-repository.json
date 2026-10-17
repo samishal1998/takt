@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "measured_at_utc": "2026-10-17T16:38:31Z",
+  "platform": "Linux-6.8.0-79-generic-x86_64-with-glibc2.39",
+  "logical_cpus": 8,
+  "load_average": [
+    4.03076171875,
+    3.77392578125,
+    4.08740234375
+  ],
+  "binary": "/home/samimishal/projects/rust/takt/target/x86_64-unknown-linux-gnu/release/takt",
+  "sha256": "00379e69ed00fac6739df3d3705ac2aa7edbe58e9fb71d9cdd274be03143e504",
+  "repository": "/home/samimishal/projects/rust/takt",
+  "cargo_lock_sha256": "6596b9b9ec823e5e6d23a996cdc9bdc530b4ad67106dc849b8f4bf5edad80527",
+  "dogfood_file_sha256": "a6d306062f1cdd459cde9c73719e383f415ce87bb7655e86f2359e78a5b7f998",
+  "policy": {
+    "active_slots": 2,
+    "cargo_build_jobs": 2,
+    "enforcement": "off",
+    "environment_overrides": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_TERM_COLOR": "never",
+      "RUST_TEST_THREADS": "1"
+    },
+    "identical_inherited_environment": true,
+    "stdin_stdout_stderr": "/dev/null",
+    "deadline_seconds_per_run": 30,
+    "warmups_per_runner": 1,
+    "samples_per_runner": 3,
+    "admission_requests_are_not_memory_limits": true
+  },
+  "commands": {
+    "format": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "lint": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--locked",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "fixtures": [
+      "cargo",
+      "build",
+      "-p",
+      "takt-test-fixture",
+      "--locked"
+    ],
+    "tests": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--locked",
+      "--",
+      "--test-threads=1"
+    ]
+  },
+  "dependencies": {
+    "tests": {
+      "fixtures": [
+        0
+      ]
+    }
+  },
+  "config": {
+    "version": 1,
+    "enforcement": "off",
+    "failure": "continue",
+    "output": "plain",
+    "scheduling": {
+      "jobs": 2,
+      "cpu": 2,
+      "memory": "4GiB",
+      "reserve_memory": "1MiB"
+    },
+    "defaults": {
+      "resources": {
+        "cpu": 1,
+        "memory": "1MiB"
+      },
+      "stop_grace": "1s"
+    },
+    "tasks": {
+      "format": {
+        "kind": "task",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "cwd": "/home/samimishal/projects/rust/takt"
+      },
+      "lint": {
+        "kind": "task",
+        "command": [
+          "cargo",
+          "clippy",
+          "--workspace",
+          "--all-targets",
+          "--locked",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "cwd": "/home/samimishal/projects/rust/takt"
+      },
+      "fixtures": {
+        "kind": "task",
+        "command": [
+          "cargo",
+          "build",
+          "-p",
+          "takt-test-fixture",
+          "--locked"
+        ],
+        "cwd": "/home/samimishal/projects/rust/takt"
+      },
+      "tests": {
+        "kind": "task",
+        "command": [
+          "cargo",
+          "test",
+          "--workspace",
+          "--locked",
+          "--",
+          "--test-threads=1"
+        ],
+        "cwd": "/home/samimishal/projects/rust/takt",
+        "depends_on": [
+          {
+            "task": "fixtures",
+            "when": "exit",
+            "codes": [
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "groups": {
+      "checks": [
+        "format",
+        "lint",
+        "tests"
+      ]
+    }
+  },
+  "shell_script": "set -u\nresult=0\ncargo fmt --all --check & format_pid=$!\n( cargo build -p takt-test-fixture --locked && cargo test --workspace --locked -- --test-threads=1 ) & tests_pid=$!\nwait \"$format_pid\" || result=1\ncargo clippy --workspace --all-targets --locked -- -D warnings & lint_pid=$!\nwait \"$tests_pid\" || result=1\nwait \"$lint_pid\" || result=1\nexit \"$result\"",
+  "warmups": {
+    "shell": 11.910527197876945,
+    "takt": 9.945987829938531
+  },
+  "sample_order": [
+    "takt",
+    "shell",
+    "shell",
+    "takt",
+    "takt",
+    "shell"
+  ],
+  "observations": {
+    "takt": [
+      9.676025171065703,
+      9.824603202054277,
+      10.387115587014705
+    ],
+    "shell": [
+      9.483820465160534,
+      9.42457745806314,
+      10.653612433001399
+    ]
+  },
+  "wall_seconds": {
+    "takt": {
+      "samples": [
+        9.676025171065703,
+        9.824603202054277,
+        10.387115587014705
+      ],
+      "median": 9.824603202054277,
+      "min": 9.676025171065703,
+      "max": 10.387115587014705
+    },
+    "shell": {
+      "samples": [
+        9.483820465160534,
+        9.42457745806314,
+        10.653612433001399
+      ],
+      "median": 9.483820465160534,
+      "min": 9.42457745806314,
+      "max": 10.653612433001399
+    }
+  },
+  "status": "passed"
+}

@@ -1,4 +1,5 @@
 /target/
+/scripts/__pycache__/
 /.artifacts/
 /dist/
 *.log

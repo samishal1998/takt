@@ -28,8 +28,13 @@ The actual baseline guest remains required to prove the fallback paths work.
 Musl rejects an ELF interpreter or `NEEDED` entry;
 macOS checks the deployment target and lists linked system libraries. The under
 1,000,000-byte executable goal is reported without silently disabling features.
-The initial size baseline is empty until measurements are reviewed. Once approved,
-populate `scripts/size-baseline.json` with target-to-executable-byte values; growth
+The reviewed initial baseline in `scripts/size-baseline.json` comes from the native
+artifacts in [CI run 39049559556](https://github.com/samishal1998/takt/actions/runs/39049559556)
+at commit `16c91e9347e217793f6f3304f2933cea06a62609`: GNU 2,159,032 bytes,
+musl 2,282,336 bytes, and macOS 1,604,352 bytes. All production features are retained;
+these exceed the size aspiration and are accepted under the approved nonblocking
+size policy. This baseline records size, not acceptance of that run's failed safety
+and compatibility harness gates. Subsequent growth
 greater than the larger of 10% or 100 KiB fails packaging until its cause is reviewed
 and the baseline is explicitly updated.
 

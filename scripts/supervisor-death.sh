@@ -18,6 +18,14 @@ relative=$(awk -F: '$1 == "0" {print $3}' /proc/self/cgroup)
 boundary="/sys/fs/cgroup$relative"
 [[ $(cat "$boundary/memory.max") == 536870912 ]]
 [[ $(cat "$boundary/pids.max") == 32 ]]
+[[ $(cat "$boundary/memory.swap.max") == 0 ]]
+[[ $(systemctl show --value --property=RuntimeMaxUSec "$3") == 20s ]]
+[[ $(systemctl show --value --property=KillMode "$3") == control-group ]]
+[[ $(systemctl show --value --property=SendSIGKILL "$3") == yes ]]
+systemctl show "$3" --property=ControlGroup --property=MemoryMax \
+  --property=MemorySwapMax --property=TasksMax --property=RuntimeMaxUSec \
+  --property=Delegate --property=KillMode --property=SendSIGKILL \
+  --property=TimeoutStopUSec > "$4"
 mkdir "$boundary/supervisor"
 printf '%s\n' "$$" > "$boundary/supervisor/cgroup.procs"
 printf '+cpu +memory +pids\n' > "$boundary/cgroup.subtree_control"
@@ -28,10 +36,11 @@ sudo systemd-run --unit="$unit" --wait --pipe --collect \
   --property=Delegate=yes --property=MemoryMax=512M --property=MemorySwapMax=0 \
   --property=TasksMax=32 --property=RuntimeMaxSec=20s --property=TimeoutStopSec=1s \
   --property=KillMode=control-group /bin/bash "$work/start.sh" "$binary" "$work/takt.json" \
+  "$unit" "$PWD/dist/safety/supervisor-death-boundary.txt" \
   > dist/safety/supervisor-death.ndjson 2> dist/safety/supervisor-death.stderr &
 launcher=$!
 ready=0
-for attempt in {1..200}; do
+for attempt in {1..500}; do
   if grep -q 'CHILD ' dist/safety/supervisor-death.ndjson; then ready=1; break; fi
   sleep 0.01
 done

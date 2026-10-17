@@ -54,6 +54,12 @@ helper. The helper starts with a clean environment; task cwd/environment are app
 only after the parent verifies requested protection. Failed exec remains a spawn
 failure rather than being confused with a legitimate exit 127.
 
+The parent advances launch IPC without blocking the event loop, with one five-second
+deadline and at most 64 KiB or 16 socket operations per turn. Pending launches still
+hold their reservations and can be cancelled. Execution and readiness timers start
+after exec is confirmed; immediate output is then fed to the readiness matcher.
+Native self-exec and controller filesystem operations remain subject to OS I/O stalls.
+
 Linux hard protection uses owned cgroup-v2 subtrees beneath an already delegated
 hierarchy. Takt never raises privileges or edits unrelated parent settings. The
 supervisor remains outside its workload cap. Partial controllers are reported by
@@ -64,7 +70,8 @@ Cancellation stops admission, signals owned groups, allows five seconds by defau
 then forces termination. A second interrupt escalates. Reservations remain held until
 cleanup. Process-group leaders remain unreaped during cleanup to prevent PID reuse.
 Hard memory failures require controller evidence; exit 137 alone is not OOM proof.
-Fallback watchdogs observe at 200 ms intervals. Aggregate fallback termination chooses
+Fallback watchdogs target 200 ms sampling intervals; this is best effort, not a
+real-time deadline. Aggregate fallback termination chooses
 the most recently started workload and does not claim reliable offender attribution.
 
 ## Parsing and output bounds

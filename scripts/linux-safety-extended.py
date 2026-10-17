@@ -13,19 +13,25 @@ assert workload_uid != 0
 scope = runpy.run_path(str(pathlib.Path(__file__).with_name("linux-safety.py")))
 execute, task, boundary, evidence = [scope[name] for name in ("execute", "task", "boundary", "evidence_directory")]
 
+
+def assert_refused_before_launch(events):
+    assert any(event.get("event") == "error" and event.get("reason") == "capability_unavailable" for event in events), events
+    assert not any(event.get("event") == "task_started" for event in events), events
+
+
 readonly = [
     "unshare", "--mount", "--propagation", "private", "/bin/bash", "-c",
     'set -e; mount --bind /sys/fs/cgroup /sys/fs/cgroup; mount -o remount,bind,ro /sys/fs/cgroup; exec "$@"',
     "readonly-cgroup",
 ]
 events, _ = execute("readonly-required", {"a": task("exit", 0)}, expected=3, prefix=readonly)
-assert not any(event.get("event") == "task_started" for event in events), events
+assert_refused_before_launch(events)
 events, _ = execute("readonly-auto", {"a": task("exit", 0)}, prefix=readonly, enforcement="auto")
 capabilities = next(event["capabilities"] for event in events if event.get("event") == "capabilities")
 assert "hard" not in capabilities["aggregate_memory"], capabilities
 
 events, _ = execute("denied-required", {"a": task("exit", 0)}, expected=3, prefix=["setpriv", "--reuid=65534", "--regid=65534", "--clear-groups"])
-assert not any(event.get("event") == "task_started" for event in events), events
+assert_refused_before_launch(events)
 
 # A real intermediate ceiling must constrain discovery even when the task asks for more.
 nested = boundary / "ancestor-test"
@@ -56,7 +62,7 @@ limited.mkdir()
 prefix = ["/bin/bash", "-c", 'set -e; printf "%s\\n" "$$" > "$1/cgroup.procs"; shift; exec "$@"', "limited", str(limited), *drop_privilege]
 try:
     events, _ = execute("missing-delegation-required", {"a": task("exit", 0)}, expected=3, prefix=prefix)
-    assert not any(event.get("event") == "task_started" for event in events), events
+    assert_refused_before_launch(events)
     events, _ = execute("missing-delegation-auto", {"a": task("exit", 0)}, prefix=prefix, enforcement="auto")
     capabilities = next(event["capabilities"] for event in events if event.get("event") == "capabilities")
     assert "hard" not in capabilities["aggregate_memory"], capabilities
