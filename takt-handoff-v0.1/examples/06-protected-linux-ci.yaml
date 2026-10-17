@@ -1,0 +1,39 @@
+# Proposed Takt v1 configuration; not an implemented CLI contract.
+# Replace illustrative project commands with commands that exist in your repository.
+version: 1
+scheduling:
+  jobs: 2
+  cpu: 2
+  memory: 3GiB
+enforcement: required
+failure: continue
+tasks:
+  lint:
+    kind: task
+    command:
+    - npm
+    - run
+    - lint
+    resources:
+      cpu: 1
+      memory: 1GiB
+    limits:
+      cpu: 1
+      memory: 1GiB
+    timeout: 5m
+  test:
+    kind: task
+    command:
+    - npm
+    - test
+    resources:
+      cpu: 1
+      memory: 1GiB
+    limits:
+      cpu: 1
+      memory: 1GiB
+    timeout: 10m
+groups:
+  checks:
+  - lint
+  - test

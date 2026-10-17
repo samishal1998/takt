@@ -1,0 +1,85 @@
+/* Takt documentation starter theme. No external assets or fonts are fetched. */
+:root {
+  color-scheme: light;
+  --takt-blue: #009df5;
+  --takt-cyan: #00bfd1;
+  --takt-mint: #00d6a0;
+  --takt-ink: #071a23;
+  --takt-bg: #f6fafc;
+  --takt-surface: #ffffff;
+  --takt-text: #071a23;
+  --takt-muted: #526879;
+  --takt-line: #dae5eb;
+  --takt-link: #00766d;
+  --takt-code: #eaf1f5;
+  --takt-radius: 16px;
+  --takt-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --takt-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --takt-bg: #071a23;
+    --takt-surface: #102a36;
+    --takt-text: #f6fafc;
+    --takt-muted: #a8beca;
+    --takt-line: #294652;
+    --takt-link: #00d6a0;
+    --takt-code: #102a36;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --takt-bg: #071a23;
+  --takt-surface: #102a36;
+  --takt-text: #f6fafc;
+  --takt-muted: #a8beca;
+  --takt-line: #294652;
+  --takt-link: #00d6a0;
+  --takt-code: #102a36;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--takt-bg); color: var(--takt-text); font: 16px/1.7 var(--takt-sans); }
+img, svg { max-width: 100%; height: auto; }
+a { color: var(--takt-link); text-underline-offset: .2em; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--takt-link); outline-offset: 4px; }
+h1, h2, h3 { line-height: 1.15; letter-spacing: -.025em; }
+h1 { font-size: clamp(2.3rem, 5vw, 4.3rem); margin: 0 0 1rem; }
+h2 { font-size: 1.65rem; margin: 2.8rem 0 1rem; }
+h3 { font-size: 1.08rem; }
+p, ul, ol { max-width: 76ch; }
+code, pre { font-family: var(--takt-mono); }
+:not(pre) > code { font-size: .9em; background: var(--takt-code); padding: .12em .35em; border-radius: 4px; }
+pre { overflow-x: auto; padding: 24px; border: 1px solid var(--takt-line); border-radius: 12px; background: var(--takt-code); font-size: .9rem; line-height: 1.65; }
+button { cursor: pointer; color: var(--takt-text); background: var(--takt-surface); border: 1px solid var(--takt-line); border-radius: 8px; padding: 9px 14px; font: inherit; }
+.takt-wrap { max-width: 1120px; padding: 0 28px; margin: auto; }
+.takt-topbar { min-height: 92px; display: flex; gap: 20px; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--takt-line); }
+.takt-nav { display: flex; gap: 24px; flex-wrap: wrap; }
+.takt-nav a { font-size: .94rem; }
+.takt-brand-tile { width: 44px; height: 44px; display: block; }
+.takt-masthead { display: flex; align-items: center; gap: 12px; font-weight: 750; letter-spacing: -.02em; }
+.takt-eyebrow { font-size: .75rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; color: var(--takt-muted); margin: 0 0 16px; }
+.takt-hero { padding: 70px 0 42px; }
+.takt-lede { color: var(--takt-muted); font-size: 1.17rem; }
+.takt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.takt-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.takt-card { padding: 26px; border: 1px solid var(--takt-line); border-radius: var(--takt-radius); background: var(--takt-surface); }
+.takt-card p:last-child { margin-bottom: 0; }
+.takt-note { padding: 18px 22px; border-left: 4px solid var(--takt-link); border-radius: 0 10px 10px 0; background: var(--takt-surface); }
+.takt-muted { color: var(--takt-muted); }
+.takt-table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .94rem; }
+th, td { text-align: left; vertical-align: top; padding: 14px 16px; border-bottom: 1px solid var(--takt-line); }
+th { color: var(--takt-muted); font-weight: 650; }
+.takt-footer { margin-top: 70px; padding: 24px 0 36px; border-top: 1px solid var(--takt-line); color: var(--takt-muted); font-size: .86rem; }
+.skip-link { position: absolute; left: 12px; top: -100px; background: var(--takt-surface); padding: 10px; z-index: 10; }
+.skip-link:focus { top: 12px; }
+@media (max-width: 700px) {
+  .takt-grid, .takt-grid.three { grid-template-columns: 1fr; }
+  .takt-topbar { flex-direction: column; align-items: flex-start; gap: 16px; padding: 20px 0; }
+  .takt-nav { gap: 12px; }
+  .takt-wrap { padding: 0 18px; }
+  .takt-hero { padding-top: 46px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

@@ -1,0 +1,33 @@
+# Proposed Takt v1 configuration; not an implemented CLI contract.
+# Replace illustrative project commands with commands that exist in your repository.
+version: 1
+scheduling:
+  jobs: 1
+failure: continue
+tasks:
+  detect:
+    kind: task
+    shell: exit 2
+    success_codes:
+    - 0
+    - 2
+  unchanged:
+    kind: task
+    shell: printf '%s\n' 'No changes detected'
+    depends_on:
+    - task: detect
+      when: exit
+      codes:
+      - 0
+  changed:
+    kind: task
+    shell: printf '%s\n' 'Changes detected; run the selected branch'
+    depends_on:
+    - task: detect
+      when: exit
+      codes:
+      - 2
+groups:
+  branch-demo:
+  - unchanged
+  - changed

@@ -1,0 +1,30 @@
+version: 1
+enforcement: off
+failure: continue
+scheduling:
+  jobs: 2
+tasks:
+  format:
+    kind: task
+    command: [cargo, fmt, --all, --check]
+  lint:
+    kind: task
+    command: [cargo, clippy, --workspace, --all-targets, --locked, --, -D, warnings]
+    resources:
+      cpu: 1
+      memory: 2GiB
+  fixtures:
+    kind: task
+    command: [cargo, build, -p, takt-test-fixture, --locked]
+  tests:
+    kind: task
+    command: [cargo, test, --workspace, --locked, --, --test-threads=1]
+    depends_on:
+      - task: fixtures
+        when: exit
+        codes: [0]
+    resources:
+      cpu: 1
+      memory: 2GiB
+groups:
+  checks: [format, lint, tests]

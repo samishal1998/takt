@@ -1,0 +1,756 @@
+{
+  "version": "0.1",
+  "note": "Inventory excludes this inventory and the brand checksum manifest.",
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 1861,
+      "format": "md",
+      "sha256": "402df017ad0881d0eebbd9584d5468c7770dcdf4a1a947e0c384052c61c8c815"
+    },
+    {
+      "file": "banners/takt-docs-banner-dark.png",
+      "bytes": 28971,
+      "format": "png",
+      "sha256": "ebd8b89afd4b36d610282a3bde55207d989891731b0a7b5481e7458fa078915c"
+    },
+    {
+      "file": "banners/takt-docs-banner-dark.svg",
+      "bytes": 15673,
+      "format": "svg",
+      "sha256": "5c347fa6802a643ae504347e27db39d37fb6663f58beed3ab23f50fe8665e593"
+    },
+    {
+      "file": "banners/takt-docs-banner-dark@2x.png",
+      "bytes": 63902,
+      "format": "png",
+      "sha256": "dd7ed4fa24b7fa92e8df12faeceebb32347a081845601c98d91faaa4de495c89"
+    },
+    {
+      "file": "banners/takt-docs-banner-light.png",
+      "bytes": 28681,
+      "format": "png",
+      "sha256": "eec832b0d2795d925bed25e95931b53d6ef4d5608f516b2ec5c8af9cd12aa92d"
+    },
+    {
+      "file": "banners/takt-docs-banner-light.svg",
+      "bytes": 15674,
+      "format": "svg",
+      "sha256": "cad2f04031bc7827b9baacb095f4e9f65a183fb42122329ace4308110edd5dcb"
+    },
+    {
+      "file": "banners/takt-docs-banner-light@2x.png",
+      "bytes": 63323,
+      "format": "png",
+      "sha256": "6fe703b283b56366f94f3f6445fd46c32b9792462a5e8e99b10640d14a816001"
+    },
+    {
+      "file": "icons/favicon.ico",
+      "bytes": 19456,
+      "format": "ico",
+      "sha256": "549e56e6451a333fa5e6a7eaa93614d6c21bb447c23bba7c7a7a91c04add8a76"
+    },
+    {
+      "file": "icons/pinned-tab.svg",
+      "bytes": 996,
+      "format": "svg",
+      "sha256": "389674991f63eafaf6b75214d8e280fdd1618bf8bef348cfa181b0bd4f73f3c4"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-1024.png",
+      "bytes": 43246,
+      "format": "png",
+      "sha256": "555ddc81d172e5fa7e936f5d90e43770526cbfeb2ff00ff558daa8f73c73d4d0"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-128.png",
+      "bytes": 3559,
+      "format": "png",
+      "sha256": "4b1536848b0f1986c75d90ec3d05170735781115bd425083319833c4f914b245"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-16.png",
+      "bytes": 417,
+      "format": "png",
+      "sha256": "6c41fb04a6fe041d4f3746d1d764c5c7c4869b78fb3c06d302fd2ea57e0ae043"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-24.png",
+      "bytes": 623,
+      "format": "png",
+      "sha256": "fbdf0ee7f6f43d6cab98a8eb2132ce43cf800da0f4f39a74ac66bbe2a59f5aa9"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-256.png",
+      "bytes": 7975,
+      "format": "png",
+      "sha256": "dc825291c043a4b6e83c0f2d88c8b075e7921e5030ca0494b64c6c87d91e0c3b"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-32.png",
+      "bytes": 795,
+      "format": "png",
+      "sha256": "78d0f7da83d79a9bf5308efe5b215f22c4325a114e5cc1362f1ba864ea3a9dfb"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-48.png",
+      "bytes": 1194,
+      "format": "png",
+      "sha256": "39a499eaecb65df3d9b02e43f25f485eedb38287098819f8d32037e53288785e"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-512.png",
+      "bytes": 17823,
+      "format": "png",
+      "sha256": "202c940709a161d3ba8da003b0e2fd5d69c6d92e091f62310eaf736e3ebfbc3a"
+    },
+    {
+      "file": "icons/takt-icon-color-dark-64.png",
+      "bytes": 1668,
+      "format": "png",
+      "sha256": "b20ddc4b3d15c14527d7889b980d14aa8bf591ac7641d7893c187c59a026f921"
+    },
+    {
+      "file": "icons/takt-icon-color-dark.svg",
+      "bytes": 1070,
+      "format": "svg",
+      "sha256": "5a7a98dc53f75543c9f32b41987e152119963d900f200836f410e048586170be"
+    },
+    {
+      "file": "icons/takt-icon-color-light-1024.png",
+      "bytes": 42575,
+      "format": "png",
+      "sha256": "304d3093ea588a7c9832f1538146a49d8186c89c0f21dfdf2c611754b89ea1db"
+    },
+    {
+      "file": "icons/takt-icon-color-light-128.png",
+      "bytes": 3527,
+      "format": "png",
+      "sha256": "b64c7becaec2c9c955accece4600cbb78ac955497fce6fd1004061d2f274e10d"
+    },
+    {
+      "file": "icons/takt-icon-color-light-16.png",
+      "bytes": 415,
+      "format": "png",
+      "sha256": "11c4078d33d65339d78699aaa6375eac96fa7def16783f51117feda8028cde7d"
+    },
+    {
+      "file": "icons/takt-icon-color-light-24.png",
+      "bytes": 615,
+      "format": "png",
+      "sha256": "ecb389a04eca7eaf580fd44c9537b32c87a73d33c2f700c61cc3e5656cf5fa44"
+    },
+    {
+      "file": "icons/takt-icon-color-light-256.png",
+      "bytes": 7926,
+      "format": "png",
+      "sha256": "251c7a4c6827d3fc95939450eea5a21bfd3898aadcdce872c50bd0e66e74b724"
+    },
+    {
+      "file": "icons/takt-icon-color-light-32.png",
+      "bytes": 804,
+      "format": "png",
+      "sha256": "92f6c10769e55e58b33f615a21b32088038031c76aed1fe187c8e9d3f8f4c528"
+    },
+    {
+      "file": "icons/takt-icon-color-light-48.png",
+      "bytes": 1197,
+      "format": "png",
+      "sha256": "8c92fa3c0906f3da681c3693406618b19ebd5ffca1828b315175eabc4cab5cec"
+    },
+    {
+      "file": "icons/takt-icon-color-light-512.png",
+      "bytes": 17583,
+      "format": "png",
+      "sha256": "15a26091f689112ea448c0076fe8ec388bf58892c8c3342d935b705ca2fb639e"
+    },
+    {
+      "file": "icons/takt-icon-color-light-64.png",
+      "bytes": 1637,
+      "format": "png",
+      "sha256": "4498d1759cad707412803b547a2f155c21939c578d8158414e51454faf3698e9"
+    },
+    {
+      "file": "icons/takt-icon-color-light.svg",
+      "bytes": 1071,
+      "format": "svg",
+      "sha256": "6c13f59d8736b5223d3af209bd7d1121458a80cc8240228d286749808a80715b"
+    },
+    {
+      "file": "icons/takt-icon-gradient-1024.png",
+      "bytes": 66258,
+      "format": "png",
+      "sha256": "8d8bddbde16484b23ccc2f13006f99bb66e2bb74f7c468d4a546c83e4903d18b"
+    },
+    {
+      "file": "icons/takt-icon-gradient-128.png",
+      "bytes": 3240,
+      "format": "png",
+      "sha256": "9b83d688fd4f232984ca70df505b94e819009991e9229d37c55de70979cbc94c"
+    },
+    {
+      "file": "icons/takt-icon-gradient-16.png",
+      "bytes": 477,
+      "format": "png",
+      "sha256": "b318360be8604a1edf1445887fde5c6af7df205d795ce13c7744d28827650ed8"
+    },
+    {
+      "file": "icons/takt-icon-gradient-24.png",
+      "bytes": 726,
+      "format": "png",
+      "sha256": "c9cf59646178e5f663730e39091d7a5c6c33a18fe654082132863be9fff9637f"
+    },
+    {
+      "file": "icons/takt-icon-gradient-256.png",
+      "bytes": 7356,
+      "format": "png",
+      "sha256": "b60a9ac594a02e978c11457f9054eaba3dba1b9b065f54841304d8f29b37faf0"
+    },
+    {
+      "file": "icons/takt-icon-gradient-32.png",
+      "bytes": 856,
+      "format": "png",
+      "sha256": "448b4b3537f3fbbdd2c02ab731dc2e90554e79277d2b328fc0bd503ddbde3c3f"
+    },
+    {
+      "file": "icons/takt-icon-gradient-48.png",
+      "bytes": 1314,
+      "format": "png",
+      "sha256": "9fe4ffc1361aead00990a2f7a5f0c6f64702d8346f9037a7aab5977006e8a304"
+    },
+    {
+      "file": "icons/takt-icon-gradient-512.png",
+      "bytes": 22397,
+      "format": "png",
+      "sha256": "a18e57af99bfe65978d9160be2c9ad89e77bb25ec753564efc531ce57177bd30"
+    },
+    {
+      "file": "icons/takt-icon-gradient-64.png",
+      "bytes": 1582,
+      "format": "png",
+      "sha256": "c7bcc5028fe110d26103bdd2f4b4e7ae5939078fa13ccc57945b545880bc0691"
+    },
+    {
+      "file": "icons/takt-icon-gradient.svg",
+      "bytes": 1067,
+      "format": "svg",
+      "sha256": "85f42b1f23f150e756e8f235e1000fe09778280a217053e8b8d7d30331eac766"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-1024.png",
+      "bytes": 27758,
+      "format": "png",
+      "sha256": "4434774f241eb916091ca4fb3fe0a771c6c5c5e54479c4032def7d9c1c1899a6"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-128.png",
+      "bytes": 2844,
+      "format": "png",
+      "sha256": "3b1a1c8e936f66bbb2ef888a8f6abb1d8c9026660f8ce1c429a8620b389e2f75"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-16.png",
+      "bytes": 399,
+      "format": "png",
+      "sha256": "cd1f7d380b76a9e27843aed59d056145b1bc85b983a96b757909b77be80388a1"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-24.png",
+      "bytes": 597,
+      "format": "png",
+      "sha256": "5d3d61b17528bc73b5cf454f6981bad7d0a40c3d4e81fc47c4893859cf282d53"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-256.png",
+      "bytes": 5824,
+      "format": "png",
+      "sha256": "16fa8121238f6450c45bcccd5a45b564835181fb54cedd2ca21be28cb5530623"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-32.png",
+      "bytes": 731,
+      "format": "png",
+      "sha256": "6206b690c5c2b1cd259c2cce5159f1e22b0fecc4bcd4269f64d3a181eb3ad32e"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-48.png",
+      "bytes": 969,
+      "format": "png",
+      "sha256": "14a8d55a41deea8b962a274dba01ef434365f5f862ea5d56a92ba42e1b7bbd9e"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-512.png",
+      "bytes": 12509,
+      "format": "png",
+      "sha256": "830413615fcc92c448729cc736df937004b3f3bebedf2c715aebd7ca65050b2a"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark-64.png",
+      "bytes": 1411,
+      "format": "png",
+      "sha256": "22851b5b81681a06350eeb2d30ae1b0f1d800fb2696b38f53591d1f0363e6e54"
+    },
+    {
+      "file": "icons/takt-icon-mono-dark.svg",
+      "bytes": 1051,
+      "format": "svg",
+      "sha256": "ddfa32d8715eaccc0ae1b5eeeb5935133e95cf28dcdd128aa7c506a29cc75589"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-1024.png",
+      "bytes": 27183,
+      "format": "png",
+      "sha256": "878728f4847afdbe38cf454ac2af211dc7c9d57598c0d2e1b2d27b9787bb40a0"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-128.png",
+      "bytes": 2758,
+      "format": "png",
+      "sha256": "91461a11403e52c4cfcb41750db23d010910d8b836f0e49629e45223d48cff1f"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-16.png",
+      "bytes": 383,
+      "format": "png",
+      "sha256": "642b0805be1e7fa95f37ecd835ed56004bb34760a5217eb38fa28e4060be8065"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-24.png",
+      "bytes": 574,
+      "format": "png",
+      "sha256": "ba5bc045b2cc97ac9ceb8a7f069fad83cebd11b5c6d5fcef456e4e1ba44ded7e"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-256.png",
+      "bytes": 5710,
+      "format": "png",
+      "sha256": "e2258f648fb9a9c154cf341bec9f25664d9b0b1e36d20ffa647f18ff71159425"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-32.png",
+      "bytes": 711,
+      "format": "png",
+      "sha256": "35b3a17dc308b4c5b85a2816073dbe3981fb238a416919df0c002056399ea52a"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-48.png",
+      "bytes": 941,
+      "format": "png",
+      "sha256": "6fdbb15e52bc3ce367546afcf4eaf0507fdfd88cbca5e5ee0d5c10c0f6be7f48"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-512.png",
+      "bytes": 12214,
+      "format": "png",
+      "sha256": "b9478ccc6c63361197501cad4e52084478819b33822ca16b152f8ca40a792fd0"
+    },
+    {
+      "file": "icons/takt-icon-mono-light-64.png",
+      "bytes": 1376,
+      "format": "png",
+      "sha256": "fdef7be0e89c07b6ea5323e43e89183d51d12f84b36b82dbaec472b1f2295591"
+    },
+    {
+      "file": "icons/takt-icon-mono-light.svg",
+      "bytes": 1052,
+      "format": "svg",
+      "sha256": "5cfe145c7f4576b962bbd357efd476969ad69aaea9f323e048f4733ce07aa907"
+    },
+    {
+      "file": "png/takt-horizontal-mono-ink.png",
+      "bytes": 7467,
+      "format": "png",
+      "sha256": "367676ec2a2f8dfaa7c288b9919fc7f4353ca546938cbfae5d6e6d2353094396"
+    },
+    {
+      "file": "png/takt-horizontal-mono-ink@2x.png",
+      "bytes": 15810,
+      "format": "png",
+      "sha256": "eb9e08ce7b67da03d3aa0deb0e4bd90285214a452658764ad335637019b2968e"
+    },
+    {
+      "file": "png/takt-horizontal-mono-white.png",
+      "bytes": 5940,
+      "format": "png",
+      "sha256": "f7684202036a2f12dc3390ef77e20a447de45dcf7d07df838a8b6edcfe7b095d"
+    },
+    {
+      "file": "png/takt-horizontal-mono-white@2x.png",
+      "bytes": 12841,
+      "format": "png",
+      "sha256": "a4575741e29618a1a909af485598790c466b0ccad9d8d63dfc6de76adc9b964d"
+    },
+    {
+      "file": "png/takt-horizontal-on-dark.png",
+      "bytes": 9561,
+      "format": "png",
+      "sha256": "0dfd24e98e91a4180faf002f6e2f793b9f7532d6ffc3a1b98aafc6967cb20a26"
+    },
+    {
+      "file": "png/takt-horizontal-on-dark@2x.png",
+      "bytes": 22136,
+      "format": "png",
+      "sha256": "4fd67d433f746049afee2474140f7c58b947ae0018264bf0df18993fc4e951b8"
+    },
+    {
+      "file": "png/takt-horizontal-on-light.png",
+      "bytes": 9677,
+      "format": "png",
+      "sha256": "ca70e3c2a596488db35579be02a5f360647d7c931476b033af45e489cbbe9be4"
+    },
+    {
+      "file": "png/takt-horizontal-on-light@2x.png",
+      "bytes": 22257,
+      "format": "png",
+      "sha256": "109bdcb846ce7abb80d58ab366438df19013843c9dcfc63fe6c77686b4debe50"
+    },
+    {
+      "file": "png/takt-mark-color.png",
+      "bytes": 6468,
+      "format": "png",
+      "sha256": "6f4202ad87774532a46628402398772b8e4e7f3e80f4dcb345c798971808ca17"
+    },
+    {
+      "file": "png/takt-mark-color@2x.png",
+      "bytes": 14865,
+      "format": "png",
+      "sha256": "774ff2125874937dea8e31ac963289cf2f37dda5d7fcc630770dc870579c1079"
+    },
+    {
+      "file": "png/takt-mark-ink.png",
+      "bytes": 3372,
+      "format": "png",
+      "sha256": "0477234a1b10a8516c563c71451480df948d6aef409ac3b58ee72008dbd5c9b2"
+    },
+    {
+      "file": "png/takt-mark-ink@2x.png",
+      "bytes": 7143,
+      "format": "png",
+      "sha256": "505c7ff6ab40e2012cc6ec400138e5b4c89320c68b4604d737ec3853332fcb2a"
+    },
+    {
+      "file": "png/takt-mark-teal.png",
+      "bytes": 3179,
+      "format": "png",
+      "sha256": "eeb199ab8ca7c2862f8631b6c512b76fbc8d0920550a3d74a7f32200642c4eff"
+    },
+    {
+      "file": "png/takt-mark-teal@2x.png",
+      "bytes": 6729,
+      "format": "png",
+      "sha256": "52a878fb713aedc6d84ce51ef5dd03539aaaf5fdaa3bbb7167195f33451dc5c6"
+    },
+    {
+      "file": "png/takt-mark-white.png",
+      "bytes": 2749,
+      "format": "png",
+      "sha256": "8e0e0ae79c41588155301ca4c6f4a949584f27a5e01026bb928a88b30d2f70d2"
+    },
+    {
+      "file": "png/takt-mark-white@2x.png",
+      "bytes": 5906,
+      "format": "png",
+      "sha256": "e11f192cd29bd324dfe544626739516dbee81350c32794c403005d01e9834417"
+    },
+    {
+      "file": "png/takt-signature-on-dark.png",
+      "bytes": 13946,
+      "format": "png",
+      "sha256": "e52990e0b4aa6a3198ef9a0b6a3d6c4a453e373fe17ad35b0db434408ef4e74e"
+    },
+    {
+      "file": "png/takt-signature-on-dark@2x.png",
+      "bytes": 31020,
+      "format": "png",
+      "sha256": "ff57b3135d82c15de7413ba52236fbdef448a468e24ba96f9ae88573db772f2a"
+    },
+    {
+      "file": "png/takt-signature-on-light.png",
+      "bytes": 14354,
+      "format": "png",
+      "sha256": "25a27aa833c0cb9a7e311021e0be68a6e1ff199d5334a78b3e8a15986118e7c0"
+    },
+    {
+      "file": "png/takt-signature-on-light@2x.png",
+      "bytes": 31454,
+      "format": "png",
+      "sha256": "ef81d1b8a89a2aed6a110ad47817d9cdf25135bb5007db7b448d2c8f75a1b77f"
+    },
+    {
+      "file": "png/takt-stacked-mono-ink.png",
+      "bytes": 8686,
+      "format": "png",
+      "sha256": "a3eb842f24212b9960822094f076cf9e12a8863c07ed82cc24bdfe9720d802f3"
+    },
+    {
+      "file": "png/takt-stacked-mono-ink@2x.png",
+      "bytes": 19281,
+      "format": "png",
+      "sha256": "9c37205d8c80b7e9c19495a5252f03cfa4b91e734542d78cf60abdd62073704a"
+    },
+    {
+      "file": "png/takt-stacked-mono-white.png",
+      "bytes": 7041,
+      "format": "png",
+      "sha256": "ae11ea128855d9665ad5a501f142b5a0d254de6970f65afe2ae66eeed35b58ef"
+    },
+    {
+      "file": "png/takt-stacked-mono-white@2x.png",
+      "bytes": 15965,
+      "format": "png",
+      "sha256": "68c5173258bfe94acac32442e841e582ff0e4748b1739acbd687674bbd68d98f"
+    },
+    {
+      "file": "png/takt-stacked-on-dark.png",
+      "bytes": 12104,
+      "format": "png",
+      "sha256": "171dd7e2731031a263d916e0afd862535206c6f30ab87f533f02163092eee951"
+    },
+    {
+      "file": "png/takt-stacked-on-dark@2x.png",
+      "bytes": 28500,
+      "format": "png",
+      "sha256": "6e5605058c50a6a1a834d8f9d74d2d2349276bc26a13226351281ad8ed49ede3"
+    },
+    {
+      "file": "png/takt-stacked-on-light.png",
+      "bytes": 12227,
+      "format": "png",
+      "sha256": "6ce9a3159ef87b8900bbac042d918f7d9f8e5c7d9407acd83998539005ddeccc"
+    },
+    {
+      "file": "png/takt-stacked-on-light@2x.png",
+      "bytes": 28758,
+      "format": "png",
+      "sha256": "27b1ee0b845b60f3912f003a4fadef4cbe883c403d2c0d7a347b555e91dc0267"
+    },
+    {
+      "file": "png/takt-wordmark-ink.png",
+      "bytes": 5122,
+      "format": "png",
+      "sha256": "d2aea6a5cd676d3aed4c7eaee604083073bc5e90d0b00dd1d2c6516043d09357"
+    },
+    {
+      "file": "png/takt-wordmark-ink@2x.png",
+      "bytes": 10577,
+      "format": "png",
+      "sha256": "6f1761ca4875d4288dcf84d704b45e1e0f4ad78c010e4dcc2ade4a251e376d75"
+    },
+    {
+      "file": "png/takt-wordmark-white.png",
+      "bytes": 4046,
+      "format": "png",
+      "sha256": "3709036914039f38467e9532e09ab1c0659fd60c1aa9756f6970f0d7e37a329a"
+    },
+    {
+      "file": "png/takt-wordmark-white@2x.png",
+      "bytes": 8491,
+      "format": "png",
+      "sha256": "7ea66328c1c24f33361b399bdea261716e975945dc09337e47178bf5796dbad2"
+    },
+    {
+      "file": "preview/index.html",
+      "bytes": 5663,
+      "format": "html",
+      "sha256": "725b5226f171ceb68334638243fba0185a2992d8b8ac66e37413d2dbd2ac3477"
+    },
+    {
+      "file": "preview/takt-brand-gallery-desktop.png",
+      "bytes": 236180,
+      "format": "png",
+      "sha256": "53e985668c95b85edfc67a3ee8ea0ae0d60dfe4e0af1522c052a239d418ecd90"
+    },
+    {
+      "file": "preview/takt-docs-style-dark.png",
+      "bytes": 178165,
+      "format": "png",
+      "sha256": "5d67ce1e8306d5eff4e7e17bceca578a9c7062d454a3a2f41cb505c0429d1ff0"
+    },
+    {
+      "file": "preview/takt-docs-style-light.png",
+      "bytes": 177477,
+      "format": "png",
+      "sha256": "9dc20d8c62bf6c249177e828e7444feb5e727b6c5ba44e72e9d0f5851cd66ea9"
+    },
+    {
+      "file": "preview/takt-docs-style-mobile.png",
+      "bytes": 170638,
+      "format": "png",
+      "sha256": "d205746ea6faa963f0937abefe0b70a630447dc3275fd49fd5c0e53009b3cf58"
+    },
+    {
+      "file": "preview/takt-stack-brand-preview.png",
+      "bytes": 143237,
+      "format": "png",
+      "sha256": "9401251f66a78dd23d7bc5b7f824c5ef68d54a35c5b7256dbbdf52b08702f44e"
+    },
+    {
+      "file": "reference/01-original-exploration-board.png",
+      "bytes": 1283610,
+      "format": "png",
+      "sha256": "ff60145582cce9ef36ae1300225c77ea67630d63a65dd000275984465d1b66c9"
+    },
+    {
+      "file": "reference/02-waveform-and-stack-exploration-board.png",
+      "bytes": 1342852,
+      "format": "png",
+      "sha256": "abac949d063feb8868e30344a3f185bc6bdb77d0ff7f46f64642f85aec5a6005"
+    },
+    {
+      "file": "reference/03-rejected-hybrid-reference.png",
+      "bytes": 1404705,
+      "format": "png",
+      "sha256": "b9913e63ca50ffa68864afbf9b9c922fce02ce904d142105b2d10d4267085780"
+    },
+    {
+      "file": "reference/README.md",
+      "bytes": 847,
+      "format": "md",
+      "sha256": "9b05f8299f3f31849882715768bf28ce1ed72e972cbce051c6b5ade45eaae261"
+    },
+    {
+      "file": "reference/selected-02-stack-reference.png",
+      "bytes": 564007,
+      "format": "png",
+      "sha256": "16adb97bb7a6a9e4d3516412103b15481aec726ec73e13c8fc4c8f012eef4a8f"
+    },
+    {
+      "file": "source/mark-geometry.json",
+      "bytes": 1048,
+      "format": "json",
+      "sha256": "af91f31fb36301b8b36fe2fdb7f733a9926933e263923fd0a6197654323822c9"
+    },
+    {
+      "file": "style/brand-guide.md",
+      "bytes": 6295,
+      "format": "md",
+      "sha256": "cc1c6445c86718bffb2b0916d1ac9417fe8c55a6cf33bfdd39a09fe569e4bc65"
+    },
+    {
+      "file": "style/contrast-report.json",
+      "bytes": 1164,
+      "format": "json",
+      "sha256": "366158e2ab2e5a81411571636ce2bd89efeca7c95abd6f5ac368f1e7e6bceaac"
+    },
+    {
+      "file": "style/design-tokens.json",
+      "bytes": 2494,
+      "format": "json",
+      "sha256": "71546a8d02b90cd6f71ebdcc8c6484dfbf9d578c9b60b12f9bebce0687f09502"
+    },
+    {
+      "file": "style/documentation-template.html",
+      "bytes": 3371,
+      "format": "html",
+      "sha256": "2acee51f9bf8f1b728f3f5f505f870de404a4aeca96512d1aa752594244168ee"
+    },
+    {
+      "file": "style/readme-snippet.md",
+      "bytes": 1219,
+      "format": "md",
+      "sha256": "e81f37f117989af31cb569a19e1d9d54e2ee39542252f1db25d1357d4a73c669"
+    },
+    {
+      "file": "style/takt-docs.css",
+      "bytes": 4473,
+      "format": "css",
+      "sha256": "7e174aa93e7ee7303ea6eaa1627402e128ea34b7d6ac268bbcea8c6022d36d52"
+    },
+    {
+      "file": "svg/takt-horizontal-mono-ink.svg",
+      "bytes": 1835,
+      "format": "svg",
+      "sha256": "29bc6a34df573a44076a3d10c60e2eb7b1b099312223ee2dba82031ae878a049"
+    },
+    {
+      "file": "svg/takt-horizontal-mono-white.svg",
+      "bytes": 1837,
+      "format": "svg",
+      "sha256": "7f737cd24374ced9c2bffc1b93be63132319c28536b792b83fc16ef37144a179"
+    },
+    {
+      "file": "svg/takt-horizontal-on-dark.svg",
+      "bytes": 1852,
+      "format": "svg",
+      "sha256": "b1cf3a881394ff54a31aaeaab499cdaeedc75de2105d9f1a888c3a2910f54992"
+    },
+    {
+      "file": "svg/takt-horizontal-on-light.svg",
+      "bytes": 1853,
+      "format": "svg",
+      "sha256": "0cfb72127324b373793fc1f7421fb88f8ee096c07e2a5b93363839a77468707a"
+    },
+    {
+      "file": "svg/takt-mark-color.svg",
+      "bytes": 1016,
+      "format": "svg",
+      "sha256": "7d4345d67f7d5f0c6e1d3dd3b9aeba9d19326888eb1d670c229b6868b3031b98"
+    },
+    {
+      "file": "svg/takt-mark-ink.svg",
+      "bytes": 996,
+      "format": "svg",
+      "sha256": "389674991f63eafaf6b75214d8e280fdd1618bf8bef348cfa181b0bd4f73f3c4"
+    },
+    {
+      "file": "svg/takt-mark-teal.svg",
+      "bytes": 997,
+      "format": "svg",
+      "sha256": "481546b507edd028a613630ccba22e44411f8263b86eb9eb05e1f9b5b3c7ed5e"
+    },
+    {
+      "file": "svg/takt-mark-white.svg",
+      "bytes": 998,
+      "format": "svg",
+      "sha256": "aee5bc228429f7a74dbbeda3a946e6bae9cfa988e0fbde790531730c74525d71"
+    },
+    {
+      "file": "svg/takt-signature-on-dark.svg",
+      "bytes": 5841,
+      "format": "svg",
+      "sha256": "ea5ab29003ced4cdc701daba2a634a9b7362ddb400600eb39b57bbb8f6e660b5"
+    },
+    {
+      "file": "svg/takt-signature-on-light.svg",
+      "bytes": 5842,
+      "format": "svg",
+      "sha256": "ed3630a4df65fac442679635f06fd4cc2ff36749a180d1c55d2948f9430bcd04"
+    },
+    {
+      "file": "svg/takt-stacked-mono-ink.svg",
+      "bytes": 1833,
+      "format": "svg",
+      "sha256": "b8f81c42b44a340c0e58fd4fb6629f2ea787e3ebd9a0c7da7679aa8d6d0df367"
+    },
+    {
+      "file": "svg/takt-stacked-mono-white.svg",
+      "bytes": 1835,
+      "format": "svg",
+      "sha256": "5448e4faf742309d1f0496272093bd54f13bdadd7effedc1a0d1e99162d17cfd"
+    },
+    {
+      "file": "svg/takt-stacked-on-dark.svg",
+      "bytes": 1850,
+      "format": "svg",
+      "sha256": "beb146cc12b10fe89752abafbf847c4f98b48ff7d535819e1aa75aa2fc6b4ba0"
+    },
+    {
+      "file": "svg/takt-stacked-on-light.svg",
+      "bytes": 1851,
+      "format": "svg",
+      "sha256": "d9eb80cf583527ba74195fb367d0ba8510ce75332f8115a17ef410212ed7565c"
+    },
+    {
+      "file": "svg/takt-wordmark-ink.svg",
+      "bytes": 1590,
+      "format": "svg",
+      "sha256": "fdb65df7f6181931a04814d19fd3a0a9ec87dd1be4f81b7a4fdc0b9661c51573"
+    },
+    {
+      "file": "svg/takt-wordmark-white.svg",
+      "bytes": 1592,
+      "format": "svg",
+      "sha256": "f1aba74680bc809c1c24a48e7d46dea15794b93a386470ab0b3e495c813d91ab"
+    }
+  ]
+}

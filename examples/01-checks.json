@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "scheduling": {
+    "jobs": "auto",
+    "cpu": "auto",
+    "memory": "auto",
+    "queue_timeout": "120s"
+  },
+  "enforcement": "auto",
+  "failure": "continue",
+  "output": "auto",
+  "defaults": {
+    "stop_grace": "5s"
+  },
+  "tasks": {
+    "lint": {
+      "kind": "task",
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "resources": {
+        "cpu": 1,
+        "memory": "512MiB"
+      },
+      "timeout": "5m"
+    },
+    "typecheck": {
+      "kind": "task",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "resources": {
+        "cpu": 1,
+        "memory": "1GiB"
+      },
+      "timeout": "10m"
+    },
+    "test": {
+      "kind": "task",
+      "command": [
+        "npm",
+        "test"
+      ],
+      "resources": {
+        "cpu": 2,
+        "memory": "2GiB"
+      },
+      "timeout": "15m"
+    }
+  },
+  "groups": {
+    "checks": [
+      "lint",
+      "typecheck",
+      "test"
+    ]
+  }
+}

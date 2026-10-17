@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="takt-title takt-desc">
+<title id="takt-title">Takt icon — mono-light</title><desc id="takt-desc">Takt Concept 02 Stack. Three staggered horizontal rounded bars. Clean vector reconstruction of the selected concept.</desc>
+<defs>
+<linearGradient id="takt-stack-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="92" x2="120" y2="0">
+<stop offset="0" stop-color="#009DF5"/><stop offset="0.5" stop-color="#00BFD1"/><stop offset="1" stop-color="#00D6A0"/>
+</linearGradient>
+<linearGradient id="takt-tile-gradient" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#009DF5"/><stop offset="1" stop-color="#00D6A0"/></linearGradient>
+</defs><rect width="256" height="256" rx="56" fill="#F6FAFC"/><g transform="translate(48.0000 66.6667) scale(1.3333333)" fill="#071A23"><rect x="12" y="0" width="92" height="24" rx="12"/><rect x="28" y="34" width="92" height="24" rx="12"/><rect x="0" y="68" width="92" height="24" rx="12"/></g></svg>

@@ -1,0 +1,560 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Takt configuration v1 \u2014 proposed draft",
+  "description": "Structural contract only. Not evidence of an implemented Takt release. Graph references, units/overflow, platform capabilities, resource feasibility, and duplicate keys require semantic/parser validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "scheduling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "jobs": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "const": "auto"
+            }
+          ]
+        },
+        "cpu": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/cpu"
+            },
+            {
+              "const": "auto"
+            }
+          ]
+        },
+        "memory": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/memory"
+            },
+            {
+              "const": "auto"
+            }
+          ]
+        },
+        "reserve_memory": {
+          "$ref": "#/$defs/memory"
+        },
+        "queue_timeout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/duration"
+            },
+            {
+              "const": "off"
+            }
+          ]
+        }
+      }
+    },
+    "enforcement": {
+      "enum": [
+        "auto",
+        "required",
+        "off"
+      ]
+    },
+    "failure": {
+      "enum": [
+        "continue",
+        "fail-fast"
+      ]
+    },
+    "service_failure": {
+      "enum": [
+        "continue",
+        "stop-dependents"
+      ]
+    },
+    "output": {
+      "enum": [
+        "auto",
+        "plain",
+        "grouped",
+        "json"
+      ]
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "limits": {
+          "$ref": "#/$defs/resources"
+        },
+        "timeout": {
+          "$ref": "#/$defs/duration"
+        },
+        "stop_grace": {
+          "$ref": "#/$defs/duration"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "unset_env": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/task"
+      }
+    },
+    "groups": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+        }
+      }
+    }
+  },
+  "required": [
+    "version",
+    "tasks"
+  ],
+  "$defs": {
+    "memory": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*(B|KiB|MiB|GiB|TiB)$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*(ms|s|m|h)$"
+    },
+    "cpu": {
+      "type": "number",
+      "minimum": 0.001,
+      "multipleOf": 0.001
+    },
+    "exitCodes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpu": {
+          "$ref": "#/$defs/cpu"
+        },
+        "memory": {
+          "$ref": "#/$defs/memory"
+        }
+      }
+    },
+    "bytes": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hex": {
+              "type": "string",
+              "pattern": "^(?:[0-9A-Fa-f]{2})+$"
+            }
+          },
+          "required": [
+            "hex"
+          ]
+        }
+      ]
+    },
+    "probe": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "tcp"
+            },
+            "host": {
+              "type": "string",
+              "minLength": 1
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "timeout": {
+              "$ref": "#/$defs/duration"
+            },
+            "interval": {
+              "$ref": "#/$defs/duration"
+            },
+            "attempt_timeout": {
+              "$ref": "#/$defs/duration"
+            }
+          },
+          "required": [
+            "type",
+            "host",
+            "port"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "http"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^http://[^\\s]+$"
+            },
+            "status_codes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              }
+            },
+            "body_contains": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timeout": {
+              "$ref": "#/$defs/duration"
+            },
+            "interval": {
+              "$ref": "#/$defs/duration"
+            },
+            "attempt_timeout": {
+              "$ref": "#/$defs/duration"
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "udp"
+            },
+            "host": {
+              "type": "string",
+              "minLength": 1
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "payload": {
+              "$ref": "#/$defs/bytes"
+            },
+            "expect": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "equals": {
+                      "$ref": "#/$defs/bytes"
+                    }
+                  },
+                  "required": [
+                    "equals"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "prefix": {
+                      "$ref": "#/$defs/bytes"
+                    }
+                  },
+                  "required": [
+                    "prefix"
+                  ]
+                }
+              ]
+            },
+            "timeout": {
+              "$ref": "#/$defs/duration"
+            },
+            "interval": {
+              "$ref": "#/$defs/duration"
+            },
+            "attempt_timeout": {
+              "$ref": "#/$defs/duration"
+            }
+          },
+          "required": [
+            "type",
+            "host",
+            "port",
+            "payload",
+            "expect"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "stdio"
+            },
+            "stream": {
+              "enum": [
+                "stdout",
+                "stderr",
+                "either"
+              ]
+            },
+            "contains": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timeout": {
+              "$ref": "#/$defs/duration"
+            }
+          },
+          "required": [
+            "type",
+            "stream",
+            "contains"
+          ]
+        }
+      ]
+    },
+    "dependency": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "task": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            },
+            "when": {
+              "const": "exit"
+            },
+            "codes": {
+              "$ref": "#/$defs/exitCodes"
+            }
+          },
+          "required": [
+            "task",
+            "when",
+            "codes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "task": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            },
+            "when": {
+              "const": "ready"
+            }
+          },
+          "required": [
+            "task",
+            "when"
+          ]
+        }
+      ]
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "task",
+            "service"
+          ]
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "prefixItems": [
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "shell": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cwd": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success_codes": {
+          "$ref": "#/$defs/exitCodes"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          }
+        },
+        "readiness": {
+          "$ref": "#/$defs/probe"
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "limits": {
+          "$ref": "#/$defs/resources"
+        },
+        "timeout": {
+          "$ref": "#/$defs/duration"
+        },
+        "stop_grace": {
+          "$ref": "#/$defs/duration"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "unset_env": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "command"
+          ],
+          "not": {
+            "required": [
+              "shell"
+            ]
+          }
+        },
+        {
+          "required": [
+            "shell"
+          ],
+          "not": {
+            "required": [
+              "command"
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "task"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "readiness"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "service"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "success_codes"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

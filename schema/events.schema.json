@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/samishal1998/takt/schema/events.schema.json",
+  "title": "Takt NDJSON event version 1",
+  "description": "One object per stdout line in JSON mode. Sequence increases within each run_id. Unknown additive fields may be ignored by readers; task outcomes are independent of raw exit codes.",
+  "type": "object",
+  "required": ["schema_version", "run_id", "sequence", "elapsed_ms", "event"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "elapsed_ms": { "$ref": "#/$defs/uint" },
+    "task_id": { "$ref": "#/$defs/taskId" },
+    "event": { "enum": ["run_started", "capabilities", "warning", "error", "task_starting", "task_started", "task_ready", "queue", "task_finished", "log", "log_truncated", "summary", "doctor", "validation", "plan"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "event": { "const": "run_started" } } },
+      "then": { "required": ["selected_roots", "budget"], "properties": { "selected_roots": { "$ref": "#/$defs/taskIds" }, "budget": { "$ref": "#/$defs/budget" } } }
+    },
+    {
+      "if": { "properties": { "event": { "const": "capabilities" } } },
+      "then": { "required": ["capabilities"], "properties": { "capabilities": { "$ref": "#/$defs/capabilities" } } }
+    },
+    {
+      "if": { "properties": { "event": { "enum": ["warning", "error"] } } },
+      "then": { "required": ["message"], "properties": { "message": { "type": "string" }, "reason": { "type": "string", "minLength": 1 }, "exit_code": { "$ref": "#/$defs/runnerExitCode" }, "request": { "$ref": "#/$defs/request" } } }
+    },
+    {
+      "if": { "properties": { "event": { "const": "task_starting" } } },
+      "then": { "required": ["task_id", "request"], "properties": { "request": { "$ref": "#/$defs/request" } } }
+    },
+    {
+      "if": { "properties": { "event": { "const": "task_started" } } },
+      "then": { "required": ["task_id", "pid"], "properties": { "pid": { "type": "integer", "minimum": 1 } } }
+    },
+    {
+      "if": { "properties": { "event": { "const": "task_ready" } } },
+      "then": { "required": ["task_id"] }
+    },
+    {
+      "if": { "properties": { "event": { "const": "queue" } } },
+      "then": { "required": ["task_id", "reason"], "properties": { "reason": { "enum": ["jobs_limit", "cpu_budget", "memory_budget", "live_memory_pressure", "dependency_wait"] } } }
+    },
+    {
+      "if": { "properties": { "event": { "const": "task_finished" } } },
+      "then": { "required": ["task_id"], "$ref": "#/$defs/outcome" }
+    },
+    {
+      "if": { "properties": { "event": { "const": "log" } } },
+      "then": {
+        "required": ["task_id", "stream", "encoding", "data"],
+        "properties": { "stream": { "enum": ["stdout", "stderr"] }, "encoding": { "enum": ["utf8", "base64"] }, "data": { "type": "string" } },
+        "if": { "properties": { "encoding": { "const": "base64" } } },
+        "then": { "properties": { "data": { "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" } } }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "log_truncated" } } },
+      "then": { "required": ["task_id", "stream", "bytes", "reason"], "properties": { "stream": { "enum": ["stdout", "stderr"] }, "bytes": { "type": "integer", "minimum": 1 }, "reason": { "const": "output_queue_full" } } }
+    },
+    {
+      "if": { "properties": { "event": { "const": "summary" } } },
+      "then": {
+        "required": ["selected_roots", "outcomes", "counts", "exit_code"],
+        "properties": {
+          "selected_roots": { "$ref": "#/$defs/taskIds" },
+          "outcomes": { "type": "object", "propertyNames": { "$ref": "#/$defs/taskId" }, "additionalProperties": { "$ref": "#/$defs/outcome" } },
+          "counts": { "type": "object", "propertyNames": { "$ref": "#/$defs/outcomeKind" }, "additionalProperties": { "$ref": "#/$defs/uint" } },
+          "exit_code": { "$ref": "#/$defs/runnerExitCode" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "doctor" } } },
+      "then": {
+        "required": ["resources", "capabilities", "platform", "architecture"],
+        "properties": { "resources": { "$ref": "#/$defs/snapshot" }, "capabilities": { "$ref": "#/$defs/capabilities" }, "platform": { "type": "string", "minLength": 1 }, "architecture": { "type": "string", "minLength": 1 } }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "validation" } } },
+      "then": { "required": ["valid", "tasks", "groups"], "properties": { "valid": { "const": true }, "tasks": { "type": "integer", "minimum": 1 }, "groups": { "$ref": "#/$defs/uint" } } }
+    },
+    {
+      "if": { "properties": { "event": { "const": "plan" } } },
+      "then": {
+        "required": ["selected_roots", "tasks", "budget", "requests", "capabilities"],
+        "properties": { "selected_roots": { "$ref": "#/$defs/taskIds" }, "tasks": { "$ref": "#/$defs/taskIds" }, "budget": { "$ref": "#/$defs/budget" }, "requests": { "type": "object", "propertyNames": { "$ref": "#/$defs/taskId" }, "additionalProperties": { "$ref": "#/$defs/request" } }, "capabilities": { "$ref": "#/$defs/capabilities" } }
+      }
+    }
+  ],
+  "$defs": {
+    "uint": { "type": "integer", "minimum": 0 },
+    "nullableUint": { "type": ["integer", "null"], "minimum": 0 },
+    "taskId": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" },
+    "taskIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/taskId" } },
+    "runnerExitCode": { "enum": [0, 1, 2, 3, 70, 130, 143] },
+    "outcomeKind": { "enum": ["succeeded", "failed", "skipped", "blocked", "cancelled", "stopped"] },
+    "outcome": {
+      "type": "object",
+      "required": ["kind", "reason", "exit_code", "signal", "detail"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/outcomeKind" },
+        "reason": { "enum": ["normal_exit", "signal", "execution_timeout", "readiness_timeout", "memory_limit", "aggregate_memory_limit", "memory_watchdog", "aggregate_memory_watchdog", "spawn_failure", "cancelled", "internal_error", "condition_not_matched", "dependency_failed", "queue_timeout", "service_deadlock", "service_unused", "service_failed", "fail_fast", "cleanup_incomplete", "output_error"] },
+        "exit_code": { "type": ["integer", "null"], "minimum": 0, "maximum": 255 },
+        "signal": { "type": ["integer", "null"], "minimum": 1 },
+        "detail": { "type": ["string", "null"] }
+      }
+    },
+    "request": {
+      "type": "object", "required": ["cpu", "memory", "cpu_inferred", "memory_inferred"],
+      "description": "CPU is integer millicores and memory is bytes. Inherited explicit defaults are not inferred.",
+      "properties": { "cpu": { "type": "integer", "minimum": 1 }, "memory": { "type": "integer", "minimum": 1 }, "cpu_inferred": { "type": "boolean" }, "memory_inferred": { "type": "boolean" } }
+    },
+    "snapshot": {
+      "type": "object", "required": ["cpu_millis", "memory_available", "provenance", "warnings"],
+      "properties": { "cpu_millis": { "$ref": "#/$defs/nullableUint" }, "memory_available": { "$ref": "#/$defs/nullableUint" }, "provenance": { "type": "array", "items": { "type": "string" } }, "warnings": { "type": "array", "items": { "type": "string" } } }
+    },
+    "capabilities": {
+      "type": "object", "required": ["cpu", "aggregate_memory", "per_task_memory", "process_tree_containment", "descendant_accounting", "swap", "details"],
+      "properties": { "cpu": { "type": "string" }, "aggregate_memory": { "type": "string" }, "per_task_memory": { "type": "string" }, "process_tree_containment": { "type": "string" }, "descendant_accounting": { "type": "string" }, "swap": { "type": "string" }, "details": { "type": "array", "items": { "type": "string" } } }
+    },
+    "budget": {
+      "type": "object", "required": ["jobs", "requested_cpu_millicores", "cpu_millicores", "requested_memory_bytes", "memory_bytes", "reserve_memory_bytes", "provenance", "discovered", "queue_timeout_ms"],
+      "properties": {
+        "jobs": { "type": "integer", "minimum": 1 }, "requested_cpu_millicores": { "$ref": "#/$defs/nullableUint" }, "cpu_millicores": { "type": "integer", "minimum": 1 }, "requested_memory_bytes": { "$ref": "#/$defs/nullableUint" }, "memory_bytes": { "$ref": "#/$defs/nullableUint" }, "reserve_memory_bytes": { "$ref": "#/$defs/uint" },
+        "provenance": { "type": "object", "additionalProperties": { "type": "string" } }, "discovered": { "$ref": "#/$defs/snapshot" }, "queue_timeout_ms": { "$ref": "#/$defs/nullableUint" }
+      }
+    }
+  }
+}

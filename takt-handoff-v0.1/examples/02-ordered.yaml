@@ -1,0 +1,38 @@
+# Proposed Takt v1 configuration; not an implemented CLI contract.
+# Replace illustrative project commands with commands that exist in your repository.
+version: 1
+scheduling:
+  jobs: auto
+failure: fail-fast
+tasks:
+  generate:
+    kind: task
+    command:
+    - npm
+    - run
+    - generate
+  build:
+    kind: task
+    command:
+    - npm
+    - run
+    - build
+    depends_on:
+    - task: generate
+      when: exit
+      codes:
+      - 0
+  package:
+    kind: task
+    command:
+    - npm
+    - run
+    - package
+    depends_on:
+    - task: build
+      when: exit
+      codes:
+      - 0
+groups:
+  release-check:
+  - package

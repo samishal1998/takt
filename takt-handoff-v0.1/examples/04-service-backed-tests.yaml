@@ -1,0 +1,75 @@
+# Proposed Takt v1 configuration; not an implemented CLI contract.
+# Replace illustrative project commands with commands that exist in your repository.
+version: 1
+scheduling:
+  jobs: 4
+  cpu: 4
+  memory: 4GiB
+enforcement: auto
+failure: continue
+tasks:
+  prepare:
+    kind: task
+    command:
+    - npm
+    - run
+    - prepare:test-data
+    resources:
+      cpu: 1
+      memory: 256MiB
+  api:
+    kind: service
+    command:
+    - npm
+    - run
+    - dev:api
+    resources:
+      cpu: 1
+      memory: 1GiB
+    depends_on:
+    - task: prepare
+      when: exit
+      codes:
+      - 0
+    readiness:
+      type: http
+      url: http://127.0.0.1:3000/health
+      status_codes:
+      - 200
+      body_contains: ready
+      timeout: 30s
+  worker:
+    kind: service
+    command:
+    - npm
+    - run
+    - dev:worker
+    resources:
+      cpu: 1
+      memory: 512MiB
+    readiness:
+      type: stdio
+      stream: either
+      contains: WORKER_READY
+      timeout: 30s
+  integration:
+    kind: task
+    command:
+    - npm
+    - run
+    - test:integration
+    resources:
+      cpu: 2
+      memory: 1GiB
+    depends_on:
+    - task: api
+      when: ready
+    - task: worker
+      when: ready
+    timeout: 10m
+groups:
+  checks:
+  - integration
+  dev:
+  - api
+  - worker

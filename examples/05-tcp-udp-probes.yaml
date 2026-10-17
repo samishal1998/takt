@@ -1,0 +1,45 @@
+# Takt v1 configuration.
+# Replace illustrative project commands with commands that exist in your repository.
+version: 1
+scheduling:
+  jobs: 2
+  cpu: 2
+  memory: 2GiB
+tasks:
+  tcp-example:
+    kind: service
+    command:
+    - ./your-tcp-service
+    resources:
+      cpu: 1
+      memory: 512MiB
+    readiness:
+      type: tcp
+      host: 127.0.0.1
+      port: 8080
+      timeout: 30s
+      attempt_timeout: 1s
+      interval: 250ms
+  udp-example:
+    kind: service
+    command:
+    - ./your-udp-service
+    resources:
+      cpu: 1
+      memory: 512MiB
+    readiness:
+      type: udp
+      host: 127.0.0.1
+      port: 9090
+      payload:
+        text: PING
+      expect:
+        equals:
+          text: PONG
+      timeout: 30s
+      attempt_timeout: 1s
+      interval: 250ms
+groups:
+  probe-demo:
+  - tcp-example
+  - udp-example

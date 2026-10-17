@@ -1,0 +1,58 @@
+[
+  {
+    "usage": "Light body",
+    "foreground": "#071A23",
+    "background": "#F6FAFC",
+    "ratio": 16.93,
+    "normal_text_4_5": true
+  },
+  {
+    "usage": "Light secondary",
+    "foreground": "#526879",
+    "background": "#F6FAFC",
+    "ratio": 5.53,
+    "normal_text_4_5": true
+  },
+  {
+    "usage": "Light links",
+    "foreground": "#00766D",
+    "background": "#F6FAFC",
+    "ratio": 5.25,
+    "normal_text_4_5": true
+  },
+  {
+    "usage": "Dark body",
+    "foreground": "#F6FAFC",
+    "background": "#071A23",
+    "ratio": 16.93,
+    "normal_text_4_5": true
+  },
+  {
+    "usage": "Dark secondary",
+    "foreground": "#A8BECA",
+    "background": "#071A23",
+    "ratio": 9.21,
+    "normal_text_4_5": true
+  },
+  {
+    "usage": "Dark links",
+    "foreground": "#00D6A0",
+    "background": "#071A23",
+    "ratio": 9.42,
+    "normal_text_4_5": true
+  },
+  {
+    "usage": "Bright cyan on white",
+    "foreground": "#00BFD1",
+    "background": "#FFFFFF",
+    "ratio": 2.24,
+    "normal_text_4_5": false
+  },
+  {
+    "usage": "Bright mint on white",
+    "foreground": "#00D6A0",
+    "background": "#FFFFFF",
+    "ratio": 1.89,
+    "normal_text_4_5": false
+  }
+]

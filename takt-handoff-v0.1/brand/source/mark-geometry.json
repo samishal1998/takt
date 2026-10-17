@@ -1,0 +1,62 @@
+{
+  "concept": "02 Stack",
+  "status": "production vector reconstruction of selected raster concept",
+  "logical_viewbox": [
+    0,
+    0,
+    120,
+    92
+  ],
+  "bars": [
+    {
+      "x": 12,
+      "y": 0,
+      "width": 92,
+      "height": 24,
+      "radius": 12
+    },
+    {
+      "x": 28,
+      "y": 34,
+      "width": 92,
+      "height": 24,
+      "radius": 12
+    },
+    {
+      "x": 0,
+      "y": 68,
+      "width": 92,
+      "height": 24,
+      "radius": 12
+    }
+  ],
+  "gradient": {
+    "from": [
+      0,
+      92
+    ],
+    "to": [
+      120,
+      0
+    ],
+    "stops": [
+      {
+        "offset": 0,
+        "color": "#009DF5"
+      },
+      {
+        "offset": 0.5,
+        "color": "#00BFD1"
+      },
+      {
+        "offset": 1,
+        "color": "#00D6A0"
+      }
+    ]
+  },
+  "wordmark": {
+    "text": "Takt",
+    "construction": "outlined Inter Display Bold glyphs with optical spacing; no font binaries embedded or distributed"
+  },
+  "clear_space": "at least one logical bar thickness (24 units) outside visible logo bounds"
+}

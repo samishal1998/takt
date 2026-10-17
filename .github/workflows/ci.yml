@@ -1,0 +1,151 @@
+name: Independent validation
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+  schedule:
+    - cron: '23 4 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  CARGO_BUILD_JOBS: '2'
+  RUST_TEST_THREADS: '1'
+  CARGO_TERM_COLOR: always
+  MACOSX_DEPLOYMENT_TARGET: '15.0'
+  PROPTEST_CASES: ${{ github.event_name == 'schedule' && '2048' || '256' }}
+jobs:
+  native:
+    name: Native ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+          - os: macos-15
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Record native platform
+        shell: bash
+        run: |
+          uname -a
+          if [[ '${{ matrix.target }}' == aarch64-apple-darwin ]]; then
+            test "$(uname -m)" = arm64
+            sw_vers
+          fi
+      - name: Install musl linker
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y musl-tools
+      - name: Install pinned toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --target '${{ matrix.target }}'
+      - name: Independent checks
+        run: bash scripts/independent-checks.sh '${{ matrix.target }}'
+      - name: Package and test extracted executable
+        run: bash scripts/package.sh '${{ matrix.target }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: native-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+  linux-safety:
+    name: Real Linux controllers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install musl linker
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y musl-tools
+      - run: rustup toolchain install 1.99.0 --profile minimal --target '${{ matrix.target }}'
+      - name: Build independent executables
+        run: cargo build --locked --release --target '${{ matrix.target }}' -p takt -p takt-test-fixture
+      - name: Build GNU loader proof outside the safety boundary
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          process_test=$(cargo test --locked --target '${{ matrix.target }}' --test process_lifecycle --no-run --message-format=json | python3 scripts/cargo-test-executable.py process_lifecycle)
+          echo "TAKT_PROCESS_TEST_BINARY=$process_test" >> "$GITHUB_ENV"
+      - name: Verify isolated outer limits and run controller tests
+        shell: bash
+        run: |
+          unit="takt-safety-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ strategy.job-index }}"
+          mkdir -p dist/safety
+          loader_args=()
+          if [[ -n "${TAKT_PROCESS_TEST_BINARY:-}" ]]; then loader_args+=("$TAKT_PROCESS_TEST_BINARY"); fi
+          sudo systemd-run --unit="$unit" --wait --pipe --collect \
+            --uid="$(id -u)" --gid="$(id -g)" \
+            --property=Delegate=yes --property=MemoryMax=512M --property=MemorySwapMax=0 \
+            --property=TasksMax=32 --property=RuntimeMaxSec=20s --property=TimeoutStopSec=2s \
+            --property=KillMode=control-group --property=WorkingDirectory="$PWD" \
+            --setenv=TAKT_ISOLATED_SAFETY=1 --setenv=TAKT_SAFETY_UNIT="$unit" \
+            /bin/bash "$PWD/scripts/linux-safety.sh" \
+            "$PWD/target/${{ matrix.target }}/release/takt" \
+            "$PWD/target/${{ matrix.target }}/release/takt-test-fixture" "$PWD/dist/safety" "${loader_args[@]}"
+      - name: Explicitly scoped namespace and delegation cases
+        shell: bash
+        run: |
+          unit="takt-namespace-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ strategy.job-index }}"
+          sudo systemd-run --unit="$unit" --wait --pipe --collect \
+            --property=Delegate=yes --property=MemoryMax=512M --property=MemorySwapMax=0 \
+            --property=TasksMax=32 --property=RuntimeMaxSec=20s --property=TimeoutStopSec=2s \
+            --property=KillMode=control-group --property=WorkingDirectory="$PWD" \
+            --setenv=TAKT_ISOLATED_SAFETY=1 --setenv=TAKT_SAFETY_UNIT="$unit" \
+            --setenv=TAKT_EXTENDED_SAFETY=1 --setenv=GITHUB_ACTIONS=true \
+            --setenv=TAKT_WORKLOAD_UID="$(id -u)" --setenv=TAKT_WORKLOAD_GID="$(id -g)" \
+            /bin/bash "$PWD/scripts/linux-safety.sh" \
+            "$PWD/target/${{ matrix.target }}/release/takt" \
+            "$PWD/target/${{ matrix.target }}/release/takt-test-fixture" "$PWD/dist/safety"
+      - name: Supervisor death retains the independent cleanup boundary
+        run: bash scripts/supervisor-death.sh "$PWD/target/${{ matrix.target }}/release/takt" "$PWD/target/${{ matrix.target }}/release/takt-test-fixture" '${{ strategy.job-index }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: safety-${{ matrix.target }}
+          path: dist/safety/
+          if-no-files-found: error
+          retention-days: 14
+  compatibility:
+    name: Linux 5.15 and glibc 2.35 guest
+    if: github.event_name != 'pull_request'
+    needs: native
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: native-x86_64-*
+          path: dist
+          merge-multiple: true
+      - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y qemu-system-x86 qemu-utils genisoimage
+      - name: Boot exact compatibility baseline
+        run: bash scripts/compatibility-vm.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: compatibility-evidence
+          path: dist/compatibility/
+          if-no-files-found: error
+          retention-days: 14

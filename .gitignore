@@ -1,0 +1,5 @@
+/target/
+/.artifacts/
+/dist/
+*.log
+Takt-Complete-Handoff-v0.1.zip

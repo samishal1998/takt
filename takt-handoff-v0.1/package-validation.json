@@ -1,0 +1,44 @@
+{
+  "example_files": [
+    "01-checks.json",
+    "01-checks.yaml",
+    "02-ordered.yaml",
+    "03-exit-code-branches.yaml",
+    "04-service-backed-tests.yaml",
+    "05-tcp-udp-probes.yaml",
+    "06-protected-linux-ci.yaml"
+  ],
+  "schema": "Draft 2020-12 structural validation passed",
+  "basic_graph_validation": true,
+  "svg_files_checked": 24,
+  "png_files_checked_before_html_screenshots": 90,
+  "font_files_included": 0,
+  "html_pages_checked": [
+    "brand/preview/index.html",
+    "brand/style/documentation-template.html"
+  ],
+  "html_screenshot_files": 4,
+  "desktop_viewport": [
+    1440,
+    960
+  ],
+  "mobile_viewport": [
+    390,
+    844
+  ],
+  "application_tests_run": false,
+  "repository_inspected": false,
+  "html_render_method": "Generated HTML rendered with embedded local CSS/images; direct file URL navigation is blocked by the environment browser policy.",
+  "negative_schema_checks": [
+    "unknown top-level field",
+    "unsupported version",
+    "zero jobs",
+    "zero CPU",
+    "task has both command and shell",
+    "finite task has readiness",
+    "exit code outside byte range",
+    "invalid memory unit"
+  ],
+  "svg_files_total": 24,
+  "png_files_total": 90
+}
