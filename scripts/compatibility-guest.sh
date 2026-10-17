@@ -16,8 +16,10 @@ for target in x86_64-unknown-linux-gnu x86_64-unknown-linux-musl; do
   fixture="/mnt/takt/fixture-$target"
   "$binary" --version
   "$binary" doctor --output json
-  "$binary" exec --output json --enforcement off -- "$fixture" args 'two words' '' '$(literal)'
-  "$binary" exec --output json --enforcement off -- "$fixture" output 131072 invalid > /tmp/takt-compatibility/output.ndjson
+  # These tiny ABI/argv/output probes need headroom while cloud-init finishes.
+  # Inferred requests can fill the initial budget and queue after a memory dip.
+  "$binary" exec --output json --enforcement off --memory 128MiB -- "$fixture" args 'two words' '' '$(literal)'
+  "$binary" exec --output json --enforcement off --memory 128MiB -- "$fixture" output 131072 invalid > /tmp/takt-compatibility/output.ndjson
   cat > /tmp/takt-compatibility/takt.json <<EOF
 {"version":1,"enforcement":"off","output":"json","scheduling":{"jobs":2,"cpu":1,"memory":"128MiB","reserve_memory":"1MiB"},"defaults":{"resources":{"cpu":0.01,"memory":"1MiB"},"stop_grace":"50ms"},"tasks":{"service":{"kind":"service","command":["$fixture","startup","1000"],"readiness":{"type":"stdio","stream":"stdout","contains":"READY","timeout":"500ms"}},"consumer":{"kind":"task","command":["$fixture","exit","0"],"depends_on":[{"task":"service","when":"ready"}]}}}
 EOF
