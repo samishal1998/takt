@@ -4,3 +4,10 @@
 /dist/
 *.log
 Takt-Complete-Handoff-v0.1.zip
+/website/node_modules/
+/website/.astro/
+/website/dist/
+/website/src/content/docs/*.md
+/website/public/
+/website/playwright-report/
+/website/test-results/

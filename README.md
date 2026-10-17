@@ -4,6 +4,10 @@
 
 **Schedule. Balance. Flow.**
 
+[Documentation](https://samishal1998.github.io/takt/) ·
+[Quick start](docs/quick-start.md) ·
+[Releases](https://github.com/samishal1998/takt/releases)
+
 Takt runs project commands together when CPU and memory budgets allow, queues
 them when capacity is occupied, and supervises their process trees. It supports
 finite checks, ordered workflows, exit-code branches, and services needed by tests.
@@ -139,6 +143,10 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 The fixture executable is development-only and is excluded from release archives.
 The independent Cargo harness remains the source of correctness evidence even
 when Takt schedules repository checks. See [release gates](docs/release.md).
+
+The Astro Starlight documentation site lives in [`website/`](website/README.md)
+and deploys to GitHub Pages from this repository. It builds from the canonical
+Markdown guides in `docs/` and `examples/README.md`.
 
 The original planning package remains under `takt-handoff-v0.1/` for provenance.
 Software is licensed under either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE),

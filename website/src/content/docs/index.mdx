@@ -1,0 +1,65 @@
+---
+title: Schedule. Balance. Flow.
+description: Run project commands together within CPU and memory budgets. Get started with Takt, a resource-aware command runner for Linux and macOS.
+template: splash
+hero:
+  tagline: Run your checks, builds, and services together. Takt starts work when resources are available and keeps its process trees under supervision.
+  image:
+    file: ../../../../brand/svg/takt-mark-color.svg
+    alt: ''
+  actions:
+    - text: Get started
+      link: /takt/quick-start/
+      icon: right-arrow
+      variant: primary
+    - text: Install Takt
+      link: /takt/installation/
+      icon: download
+      variant: secondary
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## One binary. Your existing commands.
+
+Install on Linux x86-64 or macOS Apple Silicon, then use the tools already in your project.
+
+```sh title="Install Takt"
+curl -fsSL https://github.com/samishal1998/takt/releases/latest/download/install.sh | sh
+```
+
+```sh title="Run your workflow"
+takt run checks
+takt plan checks --output json
+```
+
+Prefer a project-local command? The [Takt wrapper](/takt/installation/#project-wrapper)
+reuses an installed binary or downloads and caches a verified release.
+
+<CardGrid>
+  <Card title="Work within a budget" icon="setting">
+    Set CPU, memory, and concurrency budgets. Takt queues ready work until its
+    resource requests fit.
+  </Card>
+  <Card title="Connect tasks and services" icon="puzzle">
+    Order checks, branch on exit codes, and start temporary services when tests
+    need them. Use readiness probes to decide when consumers can run.
+  </Card>
+  <Card title="Know what is protected" icon="approve-check-circle">
+    Inspect capabilities with `takt doctor`. Require verified Linux protection,
+    or use the documented best-effort monitoring on other hosts.
+  </Card>
+  <Card title="Keep output useful" icon="document">
+    Choose live logs, grouped output, or structured NDJSON. Commands keep their
+    arguments, and cancellation cleans up their supervised process groups.
+  </Card>
+</CardGrid>
+
+## Find your next step
+
+<CardGrid>
+  <LinkCard title="Your first workflow" description="Create a small configuration and run it in minutes." href="/takt/quick-start/" />
+  <LinkCard title="Configuration guide" description="Tasks, dependencies, services, and resource requests." href="/takt/configuration/" />
+  <LinkCard title="Command reference" description="Flags, environment variables, output modes, and exit status." href="/takt/cli/" />
+  <LinkCard title="Runnable examples" description="Checks, ordered workflows, branching, and service readiness." href="/takt/examples/" />
+</CardGrid>

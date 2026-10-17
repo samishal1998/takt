@@ -4,12 +4,12 @@ These V1 configurations are checked against Takt's parser and graph validator. P
 
 | File | Demonstrates |
 |---|---|
-| `01-checks.yaml` / `.json` | Equivalent automatic-budget finite check groups |
-| `02-ordered.yaml` | Exit-code dependencies impose order regardless of available slots |
-| `03-exit-code-branches.yaml` | Expected nonzero detector outcome and neutral branch skip |
-| `04-service-backed-tests.yaml` | HTTP and stdio readiness; finite roots stop owned services; dev roots persist |
-| `05-tcp-udp-probes.yaml` | TCP connection and UDP payload/reply contracts |
-| `06-protected-linux-ci.yaml` | Explicit per-task limits plus required verified aggregate protection |
+| [01-checks.yaml](01-checks.yaml) / [01-checks.json](01-checks.json) | Equivalent automatic-budget finite check groups |
+| [02-ordered.yaml](02-ordered.yaml) | Exit-code dependencies impose order regardless of available slots |
+| [03-exit-code-branches.yaml](03-exit-code-branches.yaml) | Expected nonzero detector outcome and neutral branch skip |
+| [04-service-backed-tests.yaml](04-service-backed-tests.yaml) | HTTP and stdio readiness; finite roots stop owned services; dev roots persist |
+| [05-tcp-udp-probes.yaml](05-tcp-udp-probes.yaml) | TCP connection and UDP payload/reply contracts |
+| [06-protected-linux-ci.yaml](06-protected-linux-ci.yaml) | Explicit per-task limits plus required verified aggregate protection |
 
 The examples intentionally include explicit task requests. A request larger than a machine's effective budget is a configuration/policy error; the runner must not silently shrink it. Reduce declared requests knowingly or use appropriate automatic defaults. For example, the two-CPU test in `01-checks.yaml` cannot run under a one-CPU total budget as written.
 
