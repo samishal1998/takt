@@ -280,6 +280,63 @@ fn successful_parent_exit_cleans_surviving_descendants_before_finishing() {
     let _ = members;
 }
 
+fn regrouped_descendant(runner: &Harness) -> u32 {
+    let logs = runner.logs();
+    let identity = logs
+        .lines()
+        .find_map(|line| line.strip_prefix("GROUP "))
+        .expect("changed-group child announced its identity");
+    let identity: Vec<u32> = identity
+        .split_whitespace()
+        .map(|field| field.parse().unwrap())
+        .collect();
+    assert_eq!(identity.len(), 2, "{logs}");
+    assert_eq!(
+        identity[0], identity[1],
+        "child did not create its own process group"
+    );
+    assert_ne!(identity[0] as i32, runner.task_groups[0]);
+    identity[0]
+}
+
+#[test]
+fn cancellation_kills_descendants_that_change_process_group() {
+    let mut runner = Harness::start(fixture(&["regroup-tree", "4", "4000"]), "off");
+    runner.await_log(|logs| logs.contains("ALLOCATED "));
+    let member = regrouped_descendant(&runner);
+    // Keep the parent alive through an observation interval before cancellation;
+    // discovery is sampled even when resource enforcement is disabled.
+    std::thread::sleep(Duration::from_millis(250));
+    let started = Instant::now();
+    runner.signal(libc::SIGTERM);
+    assert_eq!(runner.finish().code(), Some(143));
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "changed-group child survived cancellation grace"
+    );
+    assert!(
+        runner
+            .events()
+            .iter()
+            .any(|event| event["event"] == "task_finished" && event["reason"] == "cancelled")
+    );
+    assert!(!runner.logs().contains("HOLD_COMPLETE"));
+    takt_test_fixture::assert_process_stopped(member);
+}
+
+#[test]
+fn successful_parent_exit_cleans_observed_descendants_in_other_groups() {
+    let started = Instant::now();
+    let mut runner = Harness::start(fixture(&["regroup-tree", "4", "4000", "orphan"]), "off");
+    assert_eq!(runner.finish().code(), Some(0));
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "changed-group child survived parent exit"
+    );
+    let member = regrouped_descendant(&runner);
+    takt_test_fixture::assert_process_stopped(member);
+}
+
 #[test]
 fn second_interrupt_escalates_before_long_stop_grace() {
     let mut task = fixture(&["ignore", "10000"]);

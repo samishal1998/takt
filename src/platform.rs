@@ -43,9 +43,12 @@ impl Capabilities {
             aggregate_memory: memory.into(),
             per_task_memory: memory.into(),
             process_tree_containment: "process_group".into(),
-            descendant_accounting: "best_effort_process_group_rss".into(),
+            descendant_accounting: "best_effort_descendant_rss".into(),
             swap: "external_policy_only".into(),
-            details: vec!["Process groups cannot contain descendants that change session/group. Sampled RSS may double-count shared pages and miss short-lived or detached processes.".into()],
+            details: vec![
+                "Process groups cannot contain descendants that change session/group. Fallback monitoring tracks the original group and observed descendants by PID/start time across group, session, and parent changes.".into(),
+                "Sampled RSS may double-count shared pages and miss inaccessible processes or descendants that exit or become reparented before observation. Identity checks reduce PID-reuse risk; individual PID signalling retains a check-to-signal race on fallback platforms.".into(),
+            ],
         }
     }
 }

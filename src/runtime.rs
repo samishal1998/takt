@@ -4,7 +4,7 @@ use crate::{
     output::Output,
     platform::{self, EnforcementMode, Protection},
     probes::Readiness,
-    process::{LaunchSpec, ManagedChild},
+    process::{LaunchSpec, ManagedChild, ProcessTable},
     scheduler::{Action, Budget, QueueReason, Scheduler, Snapshot, State},
 };
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
@@ -214,10 +214,24 @@ pub fn run(
             .any(|state| matches!(state, State::Pending | State::Queued { .. }));
         let sample_usage =
             now >= next_observation && (needs_admission || protection.watchdog_enabled());
+        let fallback_observation = running
+            .values()
+            .any(|task| task.child.needs_process_observation());
+        let sample_descendants = now >= next_observation && fallback_observation;
         if sample_usage {
             observation = platform::discover();
+        }
+        if sample_usage || sample_descendants {
             next_observation = now + Duration::from_millis(200);
         }
+        // One host enumeration per sampling tick, shared across fallback tasks.
+        // Ownership must also be observed with enforcement off, before parents
+        // exit and their children are reparented away from the original tree.
+        let processes = if sample_descendants {
+            ProcessTable::capture().ok()
+        } else {
+            None
+        };
         let mut usage = cached_usage.clone();
         let mut finished = Vec::new();
         let mut capture_pending = false;
@@ -304,8 +318,8 @@ pub fn run(
                 let _ = poll.registry().deregister(&mut SourceFd(&pipe.as_raw_fd()));
             }
             task.captured_to_end = task.child.stdout.is_none() && task.child.stderr.is_none();
-            if sample_usage {
-                if let Some(memory) = task.child.usage_memory() {
+            if sample_usage || sample_descendants {
+                if let Some(memory) = task.child.usage_memory(processes.as_ref()) {
                     usage.insert(id.clone(), memory);
                 } else {
                     usage.remove(id);

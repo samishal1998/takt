@@ -63,16 +63,32 @@ Native self-exec and controller filesystem operations remain subject to OS I/O s
 Linux hard protection uses owned cgroup-v2 subtrees beneath an already delegated
 hierarchy. Takt never raises privileges or edits unrelated parent settings. The
 supervisor remains outside its workload cap. Partial controllers are reported by
-dimension. Native macOS uses conservative available-memory estimates and process-group
-RSS monitoring, with an explicit best-effort capability report.
+dimension. Native macOS uses conservative available-memory estimates.
 
-Cancellation stops admission, signals owned groups, allows five seconds by default,
-then forces termination. A second interrupt escalates. Reservations remain held until
-cleanup. Process-group leaders remain unreaped during cleanup to prevent PID reuse.
+Fallback monitoring on Linux without a delegated memory controller and on native
+macOS samples the original process group and observed descendants. Descendants are
+identified by PID and start time and remain tracked after changing process group,
+session, or parent. When owned cgroups are unavailable, the capability report calls this
+`descendant_accounting: best_effort_descendant_rss`;
+`process_tree_containment` remains `process_group`.
+
+Fallback sampling targets 200 ms intervals, including with enforcement `off` so
+observed descendants can still be cleaned up. Enforcement `off` disables memory-limit
+termination. Sampling is best effort and has no real-time deadline. Shared resident
+pages may be counted more than once. Inaccessible processes, short-lived descendants,
+and descendants reparented before their first observation can escape accounting.
+PID/start-time checks reduce the risk of signalling a reused PID. Individual PID
+signalling on fallback platforms still has a race between the identity check and
+the signal.
+
+Cancellation stops admission and signals owned groups. Known escaped descendants
+are signalled after checking their identities. The default grace is five seconds
+before forced termination. A second interrupt escalates. Cleanup waits for tracked
+descendants, and reservations remain held until cleanup. Process-group leaders
+remain unreaped during cleanup to prevent PID reuse.
 Hard memory failures require controller evidence; exit 137 alone is not OOM proof.
-Fallback watchdogs target 200 ms sampling intervals; this is best effort, not a
-real-time deadline. Aggregate fallback termination chooses
-the most recently started workload and does not claim reliable offender attribution.
+Aggregate fallback termination chooses the most recently started workload and
+does not claim reliable offender attribution.
 
 ## Parsing and output bounds
 

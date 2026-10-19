@@ -555,6 +555,8 @@ fn exit_137_without_controller_evidence_is_not_oom() {
 fn fixture_bounds_are_enforced_before_large_work() {
     for args in [
         ["allocate", "129"],
+        ["regroup-tree", "65"],
+        ["regroup-child", "65"],
         ["tree", "9"],
         ["sleep", "10001"],
         ["output", "4194305"],
@@ -824,6 +826,92 @@ fn automatic_memory_protection_terminates_a_bounded_over_limit_task() {
     );
     #[cfg(target_os = "macos")]
     assert_eq!(reason, "memory_watchdog");
+}
+
+fn assert_regrouped_descendant_stopped(result: &Run) {
+    let logs = result.logs();
+    let identity = logs
+        .lines()
+        .find_map(|line| line.strip_prefix("GROUP "))
+        .expect("changed-group identity was announced before allocation");
+    let identity: Vec<u32> = identity
+        .split_whitespace()
+        .map(|field| field.parse().unwrap())
+        .collect();
+    assert_eq!(identity.len(), 2, "{logs}");
+    assert_eq!(
+        identity[0], identity[1],
+        "child did not create its own process group"
+    );
+    let events = result.events();
+    let leader = events
+        .iter()
+        .find(|event| event["event"] == "task_started" && event["task_id"] == "tree")
+        .unwrap()["pid"]
+        .as_u64()
+        .unwrap();
+    assert_ne!(
+        u64::from(identity[0]),
+        leader,
+        "fixture child is the task leader"
+    );
+    assert!(
+        !logs.contains("HOLD_COMPLETE"),
+        "memory hold completed without intervention"
+    );
+    takt_test_fixture::assert_process_stopped(identity[0]);
+}
+
+#[test]
+fn automatic_memory_protection_counts_descendants_in_other_process_groups() {
+    let mut task = fixture(&["regroup-tree", "48", "4000"]);
+    task["limits"] = json!({"memory":"16MiB"});
+    let mut config = configuration(json!({"tree":task}));
+    config["enforcement"] = json!("auto");
+    let started = Instant::now();
+    let result = configured(&config, &["tree"]);
+    result.code(1);
+    assert!(
+        started.elapsed() < Duration::from_secs(3),
+        "memory limit did not interrupt the four-second hold"
+    );
+    let events = result.events();
+    let outcome = &events.last().unwrap()["outcomes"]["tree"];
+    let reason = outcome["reason"].as_str().unwrap();
+    assert!(
+        matches!(reason, "memory_watchdog" | "memory_limit"),
+        "{outcome}"
+    );
+    #[cfg(target_os = "macos")]
+    assert_eq!(reason, "memory_watchdog");
+    assert_regrouped_descendant_stopped(&result);
+}
+
+#[test]
+fn aggregate_memory_protection_counts_descendants_in_other_process_groups() {
+    let mut config = configuration(json!({"tree":fixture(&["regroup-tree","48","4000"])}));
+    config["enforcement"] = json!("auto");
+    config["scheduling"]["memory"] = json!("24MiB");
+    let started = Instant::now();
+    let result = configured(&config, &["tree"]);
+    result.code(1);
+    assert!(
+        started.elapsed() < Duration::from_secs(3),
+        "aggregate budget did not interrupt the four-second hold"
+    );
+    let events = result.events();
+    let outcome = &events.last().unwrap()["outcomes"]["tree"];
+    let reason = outcome["reason"].as_str().unwrap();
+    assert!(
+        matches!(
+            reason,
+            "aggregate_memory_watchdog" | "aggregate_memory_limit"
+        ),
+        "{outcome}"
+    );
+    #[cfg(target_os = "macos")]
+    assert_eq!(reason, "aggregate_memory_watchdog");
+    assert_regrouped_descendant_stopped(&result);
 }
 
 #[test]

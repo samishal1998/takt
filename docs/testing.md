@@ -26,8 +26,8 @@ invoke Takt to drive other tests.
 ## Bounded process fixtures
 
 The fixture implements `exit`, `sleep`, `args`, `environment`, `cwd`, `output`,
-`startup`, `tree`, `orphan-tree`, `ignore`, `detach`, `allocate`, `burn`, `compute`,
-`idle`, `tcp`, `http`, and `udp`.
+`startup`, `tree`, `orphan-tree`, `regroup-tree`, `regroup-child`, `ignore`, `detach`,
+`allocate`, `burn`, `compute`, `idle`, `tcp`, `http`, and `udp`.
 Arguments are documented by the command dispatch in its small source file.
 Durations are at most 10 seconds; an independent watchdog exits at 11 seconds.
 The dedicated performance-only `idle` mode permits at most 75 seconds and exits
@@ -51,6 +51,16 @@ reservations, timeout edge classification, cwd/environment removal, strict parsi
 discovery ambiguity, and ordinary exit 137. Native macOS additionally checks
 required aggregate-memory refusal. Pure model/platform tests complement these
 process tests; none substitutes for real controller evidence.
+
+Fallback regressions use `regroup-tree` and `regroup-child` to place a 48 MiB
+allocator in a separate process group while its parent uses little memory. The
+child ignores TERM/INT and holds its allocation for four seconds. Per-task and
+aggregate memory cases require termination before its `HOLD_COMPLETE` marker.
+Cancellation and parent-exit cases run with enforcement `off` and check cleanup
+of the observed child across the group change. The harness verifies the child's
+separate group and checks liveness independently on Linux and macOS. These cases
+exercise best-effort descendant accounting and cleanup. See the
+[sampling limitations](runtime.md#lifecycle-and-enforcement).
 
 Grouped-output tests also inject partial disk-full and zero-length writes, then
 simulate disk recovery. They verify exact retained/truncated byte counts, no retry

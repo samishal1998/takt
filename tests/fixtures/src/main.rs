@@ -1,7 +1,7 @@
 //! Deliberately bounded behaviors for black-box supervision tests.
-use std::io::{self, Read, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::net::{TcpListener, UdpSocket};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 const MAX_DURATION_MS: u64 = 10_000;
@@ -149,6 +149,66 @@ fn run(args: &[String]) -> io::Result<u8> {
             }
             Ok(number(args, 4, 0, 255)? as u8)
         }
+        "regroup-tree" => {
+            let mib = number(args, 1, 48, 64)?;
+            let millis = number(args, 2, 4_000, 8_000)?;
+            let mode = args.get(3).map(String::as_str).unwrap_or("wait");
+            if !matches!(mode, "wait" | "orphan") {
+                return Err(io::Error::other("regroup-tree mode must be wait or orphan"));
+            }
+            let mut child = Command::new(std::env::current_exe()?)
+                .args(["regroup-child", &mib.to_string(), &millis.to_string()])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()?;
+            let mut output = io::BufReader::new(child.stdout.take().expect("piped output"));
+            let mut line = String::new();
+            output.read_line(&mut line)?;
+            announce(line.trim_end())?;
+            // The identity reaches Takt before allocating, even if a hard memory
+            // limit kills the whole task during allocation. The child independently
+            // expires if this handshake or any later cleanup fails.
+            child.stdin.take().expect("piped input").write_all(b"1")?;
+            line.clear();
+            output.read_line(&mut line)?;
+            announce(line.trim_end())?;
+            if mode == "orphan" {
+                // Leave at least two observation intervals to discover ancestry
+                // before the parent exits and the changed-group child is reparented.
+                std::thread::sleep(Duration::from_millis(500));
+                return Ok(0);
+            }
+            for line in output.lines() {
+                announce(line?)?;
+            }
+            Ok(child.wait()?.code().unwrap_or(1) as u8)
+        }
+        "regroup-child" => {
+            let mib = number(args, 1, 48, 64)? as usize;
+            let wait = Duration::from_millis(number(args, 2, 4_000, 8_000)?);
+            // SAFETY: change only this fixture's process group and install constant
+            // signal dispositions. The independent deadline still bounds its life.
+            unsafe {
+                if libc::setpgid(0, 0) == -1 {
+                    return Err(io::Error::last_os_error());
+                }
+                libc::signal(libc::SIGTERM, libc::SIG_IGN);
+                libc::signal(libc::SIGINT, libc::SIG_IGN);
+            }
+            // SAFETY: these read-only calls have no pointer arguments.
+            let (pid, group) = unsafe { (libc::getpid(), libc::getpgrp()) };
+            announce(format!("GROUP {pid} {group}"))?;
+            io::stdin().read_exact(&mut [0_u8])?;
+            let mut memory = vec![0_u8; mib * 1024 * 1024];
+            for page in memory.chunks_mut(4096) {
+                page[0] = 1;
+            }
+            announce(format!("ALLOCATED {}", memory.len()))?;
+            std::thread::sleep(wait);
+            announce("HOLD_COMPLETE")?;
+            std::hint::black_box(memory);
+            Ok(0)
+        }
         "allocate" => {
             let mib = number(args, 1, 1, 128)? as usize;
             let mut memory = vec![0_u8; mib * 1024 * 1024];
@@ -252,17 +312,17 @@ fn run(args: &[String]) -> io::Result<u8> {
             Ok(0)
         }
         _ => Err(io::Error::other(
-            "commands: exit, sleep, idle, ignore, detach, args, environment, cwd, output, startup, tree, orphan-tree, allocate, burn, compute, tcp, http, udp",
+            "commands: exit, sleep, idle, ignore, detach, args, environment, cwd, output, startup, tree, orphan-tree, regroup-tree, regroup-child, allocate, burn, compute, tcp, http, udp",
         )),
     }
 }
 
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let deadline_ms = if args.first().is_some_and(|argument| argument == "idle") {
-        76_000
-    } else {
-        MAX_DURATION_MS + 1_000
+    let deadline_ms = match args.first().map(String::as_str) {
+        Some("idle") => 76_000,
+        Some("regroup-tree" | "regroup-child") => MAX_DURATION_MS,
+        _ => MAX_DURATION_MS + 1_000,
     };
     // This independent deadline also bounds descendants after the test runner dies.
     std::thread::spawn(move || {
