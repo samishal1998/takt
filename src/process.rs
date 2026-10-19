@@ -242,6 +242,7 @@ pub struct ManagedChild {
     tree: ProcessTree,
     fallback_signal: Option<i32>,
     observe_descendants: bool,
+    group_killed: bool,
 }
 
 impl ManagedChild {
@@ -302,6 +303,7 @@ impl ManagedChild {
             tree: ProcessTree::default(),
             fallback_signal: None,
             observe_descendants,
+            group_killed: false,
         };
         let capture: io::Result<()> = (|| {
             if let Some(stdout) = &managed.stdout {
@@ -426,13 +428,23 @@ impl ManagedChild {
         } else {
             None
         };
-        // SAFETY: pgid belongs to the unreaped child; negative PID targets only
-        // its process group. The unreaped leader prevents process-ID recycling.
-        let group_signalled = unsafe { libc::kill(-self.pgid, signal) } == 0;
-        if !group_signalled {
-            let group_error = io::Error::last_os_error();
-            if group_error.raw_os_error() != Some(libc::ESRCH) {
-                error = Some(group_error);
+        let mut group_signalled = false;
+        // macOS rejects a broadcast to a zombie-only group with EPERM. Once
+        // SIGKILL was successfully broadcast, continue killing newly observed
+        // identities individually rather than broadcasting to the dead group.
+        // Failed broadcasts are never marked successful and can still be retried.
+        if !(self.group.is_none() && self.group_killed) {
+            // SAFETY: pgid belongs to the unreaped child; negative PID targets only
+            // its process group. The unreaped leader prevents process-ID recycling.
+            group_signalled = unsafe { libc::kill(-self.pgid, signal) } == 0;
+            if group_signalled && signal == libc::SIGKILL {
+                self.group_killed = true;
+            }
+            if !group_signalled {
+                let group_error = io::Error::last_os_error();
+                if group_error.raw_os_error() != Some(libc::ESRCH) {
+                    error = Some(group_error);
+                }
             }
         }
         if self.group.is_none() {
@@ -714,9 +726,16 @@ mod tests {
             tree: ProcessTree::default(),
             fallback_signal: None,
             observe_descendants: true,
+            group_killed: false,
         };
         peer.write_all(MAGIC).unwrap();
         managed.signal(libc::SIGKILL).unwrap();
+        assert!(managed.group_killed);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while managed.poll_exit().unwrap().is_none() {
+            assert!(Instant::now() < deadline, "killed launcher exit deadline");
+            std::thread::sleep(Duration::from_millis(2));
+        }
         managed.signal(libc::SIGTERM).unwrap();
         assert_eq!(managed.fallback_signal, Some(libc::SIGKILL));
         assert!(!managed.reaped);
