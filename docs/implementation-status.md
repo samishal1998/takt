@@ -1,5 +1,27 @@
 # Implementation status and acceptance evidence
 
+## v0.1.1 release checkpoint
+
+[Takt v0.1.1](https://github.com/samishal1998/takt/releases/tag/v0.1.1) was published
+on 2026-10-19 from commit `3fd71d79f2eadcc3b97fa58c789ffa3b13f25369` after all eight
+jobs in [release run 39191247972](https://github.com/samishal1998/takt/actions/runs/39191247972)
+passed. This patch improves best-effort descendant RSS accounting and cleanup
+after observed descendants leave their original process group, and avoids
+repeated SIGKILL broadcasts to zombie-only groups on macOS.
+
+The [native Apple Silicon job](https://github.com/samishal1998/takt/actions/runs/39191247972/job/117864370335)
+passed all four new descendant regressions for per-task memory, aggregate memory,
+cancellation, and parent-exit cleanup in both the independent and extracted-archive
+suites. The zombie-only process-group unit regression also passed. The
+[runtime contract](runtime.md#lifecycle-and-enforcement) describes the remaining
+sampling and process-identity limitations.
+
+## v0.1.0 acceptance record
+
+The detailed test counts, CI links, size/performance measurements, and milestone
+tables below preserve the historical v0.1.0 acceptance record. They are not
+measurements of v0.1.1.
+
 Release checkpoint: 2026-10-17. [Takt v0.1.0](https://github.com/samishal1998/takt/releases/tag/v0.1.0)
 was published from commit `321b13ecf8fd8ddf61b490783119c88fe1c1ed90` after
 [release run 39052589648](https://github.com/samishal1998/takt/actions/runs/39052589648)

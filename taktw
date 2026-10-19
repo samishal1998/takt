@@ -5,7 +5,7 @@
 # Standalone POSIX shell; no Bedouin or Python is required at runtime.
 set -eu
 
-takt_version='0.1.0'
+takt_version='0.1.1'
 takt_temporary=''
 takt_original_umask=$(umask)
 
@@ -75,9 +75,9 @@ takt_platform() {
         *) takt_fail "no release for $takt_os $takt_arch; supported: Linux x86_64 and macOS Apple Silicon" ;;
     esac
     case "$takt_target" in
-        x86_64-unknown-linux-gnu) takt_expected_sha='8f8bc57908b17b0f78a12dd81ae12dfa3982b5d3b5a8683a66e915a008048bef' ;;
-        x86_64-unknown-linux-musl) takt_expected_sha='e474dc067195450ac26903a6f6276bde44e145989a88070ec48e836a353391e8' ;;
-        aarch64-apple-darwin) takt_expected_sha='c322913b655699b2ba3c9140590a2ab701fb0f49b6bc94862aa0bddea20e5c77' ;;
+        x86_64-unknown-linux-gnu) takt_expected_sha='8c7fd7ca0ff0a8721c59d3c7b943e47ca78e11da9a2a806656a90c894b853742' ;;
+        x86_64-unknown-linux-musl) takt_expected_sha='a9d981e9aa35eb6aa576a8aafa9451eb306bc91a540375f0359c85cb23ea4d18' ;;
+        aarch64-apple-darwin) takt_expected_sha='897be7d76f88b9620eb2dfd8ccd0e6b56c7745bef85416607eac5155ccb3ac6c' ;;
     esac
 }
 

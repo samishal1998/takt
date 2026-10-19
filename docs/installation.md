@@ -38,7 +38,7 @@ itself with Takt so exit status and signals reach the application normally. It
 does not require a checkout of this repository, Rust, Python, or Bedouin.
 
 The wrapper uses its pinned release by default, downloading and verifying it
-once before reusing the cached executable. The checked-in wrapper pins `0.1.0`.
+once before reusing the cached executable. The checked-in wrapper pins `0.1.1`.
 To opt into reusing an installed Takt from PATH:
 
 ```sh

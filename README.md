@@ -36,7 +36,7 @@ chmod +x taktw
 ./taktw run checks
 ```
 
-The wrapper uses its pinned release by default (currently `0.1.0`), downloading
+The wrapper uses its pinned release by default (currently `0.1.1`), downloading
 it once, verifying its SHA-256, and reusing the cached executable on subsequent
 runs, including offline. Set `TAKT_USE_SYSTEM=1` to opt into reusing Takt from your
 `PATH` when available. Both scripts work with `sh` or Bash and
